@@ -1,0 +1,7 @@
+{"q": "My Linux server is running slowly. Find the process consuming the most CPU, display its PID, user, CPU and memory usage, check which files it has open, and show how to terminate it gracefully.", "why": "round 1 answered with macOS `top -l 1 -s 10`", "must_not": ["top\\s+-l\\b"], "must_cmds": ["ps", "top", "pidstat"]}
+{"q": "list open ports on this machine", "why": "round 1 stock model copied `openstack port list` from a retrieved note", "must_not": ["openstack"], "must_cmds": ["ss", "netstat", "lsof", "nmap"]}
+{"q": "generate a new ssh key", "why": "round 1 stock model copied `az sshkey create`", "must_not": ["\\baz\\b"], "must_cmds": ["ssh-keygen"]}
+{"q": "zip up a folder", "why": "round 1 stock model answered with tar", "must_not": [], "must_cmds": ["zip"]}
+{"q": "list installed packages", "why": "round 1 model answered `pip list`", "must_not": ["\\bpip3?\\b"], "must_cmds": ["dpkg", "apt", "rpm", "dnf", "pacman"]}
+{"q": "delete all empty directories under the current one", "why": "round 1 model answered `rmdir *`", "must_not": ["^rmdir\\s+\\*"], "must_cmds": ["find"]}
+{"q": "how do i see which process is using the most memory", "why": "round 1 explained plain `top` as showing the top 10 by memory", "must_not": [], "must_cmds": ["ps", "top", "htop", "smem"]}

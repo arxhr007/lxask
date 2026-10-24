@@ -1,0 +1,21 @@
+[package]
+name = "lxask"
+description = "Ask how to do something on Linux. Prints commands; never runs them."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "lxask"
+path = "src/main.rs"
+
+[features]
+openmp = ["lxask-llm/openmp"]
+
+[dependencies]
+lxask-core.workspace = true
+lxask-llm.workspace = true
+serde_json = { workspace = true, features = ["preserve_order"] }
+libc = "0.2"

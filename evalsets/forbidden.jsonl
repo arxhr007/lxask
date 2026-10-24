@@ -1,0 +1,40 @@
+{"q": "show which process is listening on port 8080 without lsof", "must_cmds": ["ss", "netstat", "fuser"], "forbid": ["lsof"]}
+{"q": "which program has port 443 open? lsof isn't installed", "must_cmds": ["ss", "netstat", "fuser"], "forbid": ["lsof"]}
+{"q": "list listening TCP ports, don't use netstat", "must_cmds": ["ss", "lsof"], "forbid": ["netstat"]}
+{"q": "count the lines in access.log without wc", "must_cmds": ["awk", "grep", "sed"], "forbid": ["wc"]}
+{"q": "count the words in notes.txt without using wc", "must_cmds": ["awk", "tr", "grep"], "forbid": ["wc"]}
+{"q": "download https://example.com/file.tar.gz without curl", "must_cmds": ["wget"], "forbid": ["curl"]}
+{"q": "fetch the headers of https://example.com, use wget instead of curl", "must_cmds": ["wget"], "forbid": ["curl"]}
+{"q": "show my network interfaces and their addresses without ifconfig", "must_cmds": ["ip"], "forbid": ["ifconfig"]}
+{"q": "show the routing table, don't use route or netstat", "must_cmds": ["ip"], "forbid": ["route", "netstat"]}
+{"q": "find lines containing ERROR in app.log without grep", "must_cmds": ["awk", "sed"], "forbid": ["grep", "egrep", "fgrep"]}
+{"q": "show the first 5 lines of data.csv without head", "must_cmds": ["sed", "awk"], "forbid": ["head"]}
+{"q": "show the last 10 lines of syslog without tail", "must_cmds": ["sed", "awk", "tac"], "forbid": ["tail"]}
+{"q": "pack the reports directory into an archive without tar", "must_cmds": ["zip", "7z", "cpio"], "forbid": ["tar"]}
+{"q": "compress big.log without gzip", "must_cmds": ["xz", "lzma", "bzip2", "zstd", "zip"], "forbid": ["gzip"]}
+{"q": "list the files in /etc sorted by size without ls", "must_cmds": ["find", "du", "stat"], "forbid": ["ls"]}
+{"q": "find all .conf files under /etc without find", "must_cmds": ["locate", "ls", "grep", "tree"], "forbid": ["find"]}
+{"q": "print the current user's name without whoami", "must_cmds": ["id", "echo", "logname", "printenv"], "forbid": ["whoami"]}
+{"q": "show how much memory is free without free", "must_cmds": ["cat", "vmstat", "top", "awk", "grep"], "forbid": ["free"]}
+{"q": "show the 5 processes using the most CPU without top", "must_cmds": ["ps"], "forbid": ["top", "htop"]}
+{"q": "restart the nginx service without systemctl", "must_cmds": ["service"], "forbid": ["systemctl"]}
+{"q": "check the status of the ssh service, don't use systemctl", "must_cmds": ["service"], "forbid": ["systemctl"]}
+{"q": "install htop without apt", "must_cmds": ["apt-get", "aptitude", "snap", "dpkg"], "forbid": ["apt"]}
+{"q": "list installed packages without dpkg", "must_cmds": ["apt", "apt-cache", "rpm"], "forbid": ["dpkg"]}
+{"q": "edit /etc/hosts to add 10.0.0.5 db.local, without vim or nano", "must_cmds": ["echo", "tee", "sed", "printf"], "forbid": ["vim", "vi", "nano"]}
+{"q": "replace foo with bar in config.ini without sed", "must_cmds": ["perl", "awk", "python3", "ex"], "forbid": ["sed"]}
+{"q": "show the size of the home directory without du", "must_cmds": ["find", "df", "stat"], "forbid": ["du"]}
+{"q": "delete the file old.txt without rm", "must_cmds": ["unlink", "find", "shred"], "forbid": ["rm"]}
+{"q": "copy photos/ to /mnt/backup, use rsync rather than cp; don't use cp", "must_cmds": ["rsync"], "forbid": ["cp"]}
+{"q": "show disk usage of mounted filesystems without df", "must_cmds": ["findmnt", "lsblk", "du", "stat"], "forbid": ["df"]}
+{"q": "list block devices without lsblk", "must_cmds": ["fdisk", "blkid", "ls", "cat", "parted"], "forbid": ["lsblk"]}
+{"q": "show what is in my crontab without crontab -l", "must_cmds": ["cat", "ls"], "forbid": ["crontab"]}
+{"q": "add the user deploy without using sudo, I am root", "must_cmds": ["useradd", "adduser"], "forbid": ["sudo"]}
+{"q": "update the package lists; I'm already root so no sudo", "must_cmds": ["apt", "apt-get", "dnf", "yum"], "forbid": ["sudo"]}
+{"q": "show the kernel version without uname", "must_cmds": ["cat", "hostnamectl"], "forbid": ["uname"]}
+{"q": "check if google.com resolves without dig or nslookup", "must_cmds": ["host", "getent", "ping", "resolvectl"], "forbid": ["dig", "nslookup"]}
+{"q": "My app on port 8080 is down. Check whether anything listens on 8080, find which process owns it, and test a local connection to it. lsof is not installed, so don't use it.", "must_cmds": ["ss", "netstat", "fuser", "nc", "curl"], "forbid": ["lsof"]}
+{"q": "Find the 5 largest files under /var/log and count the lines in each of them, without using wc for any of it.", "must_cmds": ["find", "du", "awk", "sort", "ls"], "forbid": ["wc"]}
+{"q": "Download https://example.com/data.csv into /tmp, then show its first 3 lines. Use wget, not curl.", "must_cmds": ["wget", "head", "sed"], "forbid": ["curl"]}
+{"q": "Show my IP addresses, the default gateway and the DNS servers, without ifconfig or route.", "must_cmds": ["ip", "resolvectl", "cat", "nmcli"], "forbid": ["ifconfig", "route"]}
+{"q": "Search app.log for lines with 'timeout', count them, and show the last one, all without grep.", "must_cmds": ["awk", "sed", "tail"], "forbid": ["grep", "egrep", "fgrep"]}

@@ -1,0 +1,80 @@
+{"q": "show the last 20 lines of a file", "cmds": ["tail"]}
+{"q": "list only the directories in the current folder", "cmds": ["ls", "find"]}
+{"q": "see who else is logged into this machine", "cmds": ["who", "w", "users"]}
+{"q": "copy a file but keep its timestamps and permissions", "cmds": ["cp", "rsync"]}
+{"q": "move all the jpg files here into a folder called photos", "cmds": ["mv", "find"]}
+{"q": "make a new empty file", "cmds": ["touch", "truncate"]}
+{"q": "create a folder and any missing parent folders in one go", "cmds": ["mkdir"]}
+{"q": "count how many files are in a directory", "cmds": ["ls", "find"]}
+{"q": "show a file with line numbers", "cmds": ["cat", "nl", "less"]}
+{"q": "search a file for a word ignoring upper and lower case", "cmds": ["grep"]}
+{"q": "show the lines of a file that do not contain a word", "cmds": ["grep"]}
+{"q": "print only lines 10 to 20 of a file", "cmds": ["sed", "awk", "head", "tail"]}
+{"q": "how many words are in a file", "cmds": ["wc"]}
+{"q": "join two files one after the other into a third file", "cmds": ["cat"]}
+{"q": "see the differences between two directories", "cmds": ["diff", "rsync"]}
+{"q": "find all files owned by a particular user", "cmds": ["find"]}
+{"q": "find files that were changed in the last hour", "cmds": ["find"]}
+{"q": "find all the symbolic links in a folder", "cmds": ["find", "ls"]}
+{"q": "delete a directory that still has files in it", "cmds": ["rm"]}
+{"q": "what kind of file is this", "cmds": ["file"]}
+{"q": "show a file's size, owner and modification time in detail", "cmds": ["stat", "ls"]}
+{"q": "what groups does my user belong to", "cmds": ["groups", "id"]}
+{"q": "lock a user account so they cannot log in", "cmds": ["usermod", "passwd"]}
+{"q": "delete a user together with their home directory", "cmds": ["userdel", "deluser"]}
+{"q": "switch to another user in the terminal", "cmds": ["su", "sudo"]}
+{"q": "create a new group", "cmds": ["groupadd", "addgroup"]}
+{"q": "change the group a file belongs to", "cmds": ["chgrp", "chown"]}
+{"q": "stop a service", "cmds": ["systemctl", "service"]}
+{"q": "list all the services that failed to start", "cmds": ["systemctl"]}
+{"q": "see the kernel messages", "cmds": ["dmesg", "journalctl"]}
+{"q": "list every timer systemd has scheduled", "cmds": ["systemctl"]}
+{"q": "reload systemd after editing a unit file", "cmds": ["systemctl"]}
+{"q": "show the cron jobs for my user", "cmds": ["crontab"]}
+{"q": "kill a process using its pid", "cmds": ["kill"]}
+{"q": "find the pid of a running program by its name", "cmds": ["pgrep", "pidof", "ps"]}
+{"q": "show processes as a tree", "cmds": ["pstree", "ps"]}
+{"q": "change the priority of a process that is already running", "cmds": ["renice"]}
+{"q": "bring a background job back to the foreground", "cmds": ["fg"]}
+{"q": "show my command history", "cmds": ["history"]}
+{"q": "measure how long a command takes to run", "cmds": ["time"]}
+{"q": "compress a file with gzip", "cmds": ["gzip"]}
+{"q": "decompress a .bz2 file", "cmds": ["bunzip2", "bzip2", "tar"]}
+{"q": "list what is inside a tar archive without extracting it", "cmds": ["tar"]}
+{"q": "create a tar archive of a folder with no compression", "cmds": ["tar"]}
+{"q": "list the contents of a zip file", "cmds": ["unzip", "zipinfo"]}
+{"q": "extract an .xz file", "cmds": ["unxz", "xz", "tar"]}
+{"q": "which dns servers is this system using", "cmds": ["resolvectl", "cat", "nmcli", "systemd-resolve"]}
+{"q": "show the routing table", "cmds": ["ip", "route", "netstat"]}
+{"q": "download a file and save it under a different name", "cmds": ["curl", "wget"]}
+{"q": "send a POST request with json data", "cmds": ["curl", "wget", "http"]}
+{"q": "show only the http response headers of a url", "cmds": ["curl", "wget"]}
+{"q": "copy a file from a remote server to my machine over ssh", "cmds": ["scp", "rsync", "sftp"]}
+{"q": "log into a server using a specific private key", "cmds": ["ssh"]}
+{"q": "forward a local port to a remote server over ssh", "cmds": ["ssh"]}
+{"q": "show the mac address of my network card", "cmds": ["ip", "ifconfig", "cat"]}
+{"q": "bring a network interface down", "cmds": ["ip", "ifconfig", "nmcli", "ifdown"]}
+{"q": "test whether a tcp port on another machine is open", "cmds": ["nc", "telnet", "nmap", "curl", "ncat"]}
+{"q": "show the firewall rules", "cmds": ["iptables", "nft", "ufw", "firewall-cmd"]}
+{"q": "show the uuid of a partition", "cmds": ["blkid", "lsblk"]}
+{"q": "unmount a drive", "cmds": ["umount"]}
+{"q": "check a filesystem for errors", "cmds": ["fsck", "e2fsck"]}
+{"q": "how many inodes are free", "cmds": ["df"]}
+{"q": "update the list of available packages", "cmds": ["apt", "apt-get"]}
+{"q": "remove a package together with its config files", "cmds": ["apt", "apt-get", "dpkg"]}
+{"q": "search for a package by name", "cmds": ["apt", "apt-cache"]}
+{"q": "find out which package a file belongs to", "cmds": ["dpkg", "apt-file", "rpm"]}
+{"q": "show the current date and time", "cmds": ["date", "timedatectl"]}
+{"q": "change the system timezone", "cmds": ["timedatectl", "ln"]}
+{"q": "show a calendar for this month", "cmds": ["cal", "ncal"]}
+{"q": "do a calculation in the terminal", "cmds": ["bc", "expr", "echo", "awk", "python3"]}
+{"q": "convert the text in a file to uppercase", "cmds": ["tr", "awk", "sed"]}
+{"q": "remove blank lines from a file", "cmds": ["sed", "grep", "awk"]}
+{"q": "reverse the order of the lines in a file", "cmds": ["tac"]}
+{"q": "print the third field of lines separated by colons", "cmds": ["cut", "awk"]}
+{"q": "base64 encode a file", "cmds": ["base64", "openssl"]}
+{"q": "set an environment variable for the current session", "cmds": ["export"]}
+{"q": "shut down the computer in 10 minutes", "cmds": ["shutdown"]}
+{"q": "list the usb devices", "cmds": ["lsusb"]}
+{"q": "which linux distribution and version is this", "cmds": ["lsb_release", "cat", "hostnamectl"]}
+{"q": "undo the last git commit but keep the changes", "cmds": ["git"]}

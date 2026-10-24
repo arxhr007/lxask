@@ -1,0 +1,6 @@
+nl2bash_test.jsonl is derived from NL2Bash (https://github.com/TellinaTool/nl2bash),
+licensed under the GNU General Public License v3.0
+(https://www.gnu.org/licenses/gpl-3.0.html). It holds 150 of NL2Bash's question and
+command pairs, held out of training, with the programs each reference command uses;
+references that are not valid on Linux were dropped. This file and nl2bash_test.jsonl
+are under the GPL-3.0, not the MIT License of the rest of the repository.

@@ -1,0 +1,48 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  core-and-python:
+    # the rules (lxask-core) and the Python tests that run them through lxask._core;
+    # no model is needed and llama.cpp is not built
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Rust core tests
+        run: cargo test --release --manifest-path rust/Cargo.toml -p lxask-core
+      - name: Build lxask._core
+        run: |
+          cargo build --release --manifest-path rust/crates/lxask-py/Cargo.toml --features pyo3/extension-module
+          cp rust/target/release/lib_core.so src/lxask/_core.abi3.so
+      - name: Python tests
+        run: |
+          python -m pip install --quiet pytest numpy
+          PYTHONPATH=src python -m pytest -q
+
+  program:
+    # the lxask program's own tests (server, feedback, --share); builds llama.cpp
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - name: Tools for llama.cpp
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends cmake libclang-dev
+      - name: Program tests
+        run: cargo test --release --manifest-path rust/Cargo.toml -p lxask

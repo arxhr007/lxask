@@ -1,0 +1,18 @@
+[package]
+name = "lxask-llm"
+description = "lxask's models through llama.cpp: the Qwen chat model and the bge encoder"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[features]
+# OpenMP threads (needs libgomp at run time); without it ggml uses its own thread pool,
+# which the portable release builds do.
+openmp = ["llama-cpp-2/openmp"]
+
+[dependencies]
+lxask-core.workspace = true
+llama-cpp-2 = { version = "=0.1.160", default-features = false }
+llama-cpp-sys-2 = { version = "=0.1.160", default-features = false }

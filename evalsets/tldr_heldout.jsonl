@@ -1,0 +1,150 @@
+{"q": "I want to extract files/directories from archives to `stdout` alongside the extracted file names", "cmds": ["unzip"], "reference": "unzip -c path/to/archive1.zip path/to/archive2.zip ..."}
+{"q": "exit out of the user service manager", "cmds": ["systemctl"], "reference": "systemctl exit --user"}
+{"q": "use extended `regex` (supports `?`, `+`, `{}`, `()`, and `|`), in case-insensitive mode in linux", "cmds": ["bzgrep"], "reference": "bzgrep --extended-regexp --ignore-case \"search_pattern\" path/to/file"}
+{"q": "i need to see the url of the main remote in my repo", "cmds": ["git"], "reference": "git browse"}
+{"q": "make a new branch from the current commit", "cmds": ["git"], "reference": "git branch branch_name"}
+{"q": "interactively stage parts of a file without committing it yet", "cmds": ["git"], "reference": "git add --patch"}
+{"q": "set up a socks proxy for port 1080 via ssh", "cmds": ["ssh"], "reference": "ssh username@remote_host -D 1080"}
+{"q": "see what files would be copied without actually moving them", "cmds": ["rsync"], "reference": "rsync path/to/source path/to/destination"}
+{"q": "install or update this package, getting latest version if available", "cmds": ["apt-get"], "reference": "sudo apt-get install package"}
+{"q": "i need to change an old git tag’s name", "cmds": ["git"], "reference": "git rename-tag old_tag_name new_tag_name"}
+{"q": "print blame info for lines 10 to 20 of index.html", "cmds": ["git"], "reference": "git blame -L 123 path/to/file"}
+{"q": "check if my file has specific capabilities", "cmds": ["setcap"], "reference": "setcap -v 'cap_net_raw' path/to/file"}
+{"q": "remux a mkv file to mp4 without re-encoding", "cmds": ["ffmpeg"], "reference": "ffmpeg -i path/to/input_video.mkv -codec copy path/to/output_video.mp4"}
+{"q": "how do i merge only one file in a git commit", "cmds": ["git"], "reference": "git merge-index git-merge-one-file -- path/to/file"}
+{"q": "command to allow a package to be updated again", "cmds": ["apt-mark"], "reference": "sudo apt-mark unhold package"}
+{"q": "start tload and see system load visually", "cmds": ["tload"], "reference": "tload"}
+{"q": "show me where type is looking for executables", "cmds": ["type"], "reference": "type -a command"}
+{"q": "how do i join multicast group 239.1.1.10 on eth0", "cmds": ["ip"], "reference": "sudo ip maddress add 33:33:00:00:00:02 dev ethX"}
+{"q": "tell me who i am right now, with id info", "cmds": ["id"], "reference": "id --user --name"}
+{"q": "order by number of objects used in memory", "cmds": ["slabtop"], "reference": "sudo slabtop --sort o"}
+{"q": "open a file and enable soft wrapping", "cmds": ["nano"], "reference": "nano --softwrap path/to/file"}
+{"q": "how do i calculate 5+7", "cmds": ["let"], "reference": "let \"result = a + b\""}
+{"q": "show me all active screen sessions", "cmds": ["screen"], "reference": "screen -ls"}
+{"q": "kill every process that's using this file", "cmds": ["fuser"], "reference": "fuser --kill path/to/file_or_directory"}
+{"q": "what's the value for timeout in pip config", "cmds": ["pip"], "reference": "pip config get command.option --global|--user|--site"}
+{"q": "split this pdf into parts every 5 lines, ignoring if they don't fit perfectly", "cmds": ["csplit"], "reference": "csplit --keep-files path/to/file 5 {*}"}
+{"q": "show me what i've changed before committing anything", "cmds": ["git"], "reference": "git diff HEAD"}
+{"q": "resolve the srv record for _xmpp-server._tcp gmail.com", "cmds": ["resolvectl"], "reference": "resolvectl service _service._protocol name"}
+{"q": "apply changes described in a file to my current working tree or index", "cmds": ["git"], "reference": "curl --location https://example.com/file.patch | git apply"}
+{"q": "make sure this refname is correct before using it anywhere", "cmds": ["git"], "reference": "git check-ref-format --normalize refs/head/refname"}
+{"q": "show me the env var but terminate with null instead of newline", "cmds": ["printenv"], "reference": "printenv --null HOME"}
+{"q": "run script from a specific module", "cmds": ["python"], "reference": "python -m module arguments"}
+{"q": "check if sha224sum will verify all provided checksums", "cmds": ["sha224sum"], "reference": "sha224sum --check path/to/file.sha224"}
+{"q": "how do i update a git reference", "cmds": ["git"], "reference": "git update-ref -m message HEAD 4e95e05"}
+{"q": "output 'hello' repeatedly until i tell you to stop", "cmds": ["yes"], "reference": "yes value"}
+{"q": "check out a specific pull request", "cmds": ["git"], "reference": "git pr pr_number"}
+{"q": "i need gcc to show all error messages during compilation", "cmds": ["gcc"], "reference": "gcc path/to/source.c -Wall --output output_executable"}
+{"q": "make sure each client name only shows up to 10 characters in xlsclients output", "cmds": ["xlsclients"], "reference": "xlsclients -m max_command_length"}
+{"q": "remove specific files and directories recursively", "cmds": ["rm"], "reference": "rm --recursive path/to/file_or_directory1 path/to/file_or_directory2 ..."}
+{"q": "create backup of system into an IMG file with progress", "cmds": ["dd"], "reference": "sudo dd status=progress if=/dev/drive_device of=path/to/file.img"}
+{"q": "get me the events related to udev processing for this device", "cmds": ["udevadm"], "reference": "sudo udevadm monitor --udev"}
+{"q": "download new stuff from a repository and merge into my current work", "cmds": ["git"], "reference": "git pull remote_name branch"}
+{"q": "strip all non-printable characters out of a document", "cmds": ["tr"], "reference": "tr < path/to/file --complement --delete \"[:print:]\""}
+{"q": "export a copy of the entire tree at the last commit to the specified directory (the trailing slash is important)", "cmds": ["git"], "reference": "git checkout-index --all --force --prefix path/to/export_directory/"}
+{"q": "i need to make a named pipe somewhere", "cmds": ["mkfifo"], "reference": "mkfifo path/to/pipe"}
+{"q": "scripting: how can i hide errors and get short refs from git symbolic-ref", "cmds": ["git"], "reference": "git symbolic-ref --quiet --short refs/name"}
+{"q": "how do i pipe input to a log file", "cmds": ["logsave"], "reference": "logsave logfile -"}
+{"q": "show me my saved changes not yet committed", "cmds": ["git"], "reference": "git stash list"}
+{"q": "start a server for this repository using my theme", "cmds": ["hg"], "reference": "hg serve --style style"}
+{"q": "how do i create a new tmux window?", "cmds": ["tmux"], "reference": "<Ctrl b><c>"}
+{"q": "how can I set the system keyboard layout?", "cmds": ["systemd-firstboot"], "reference": "sudo systemd-firstboot --keymap keymap"}
+{"q": "how can I test if the specified directory exists?", "cmds": ["["], "reference": "[ -d path/to/directory ]"}
+{"q": "check if commits are signed with gpg", "cmds": ["git"], "reference": "git verify-commit commit_hash1 optional_commit_hash2 ..."}
+{"q": "how do i add an auth token for a display session", "cmds": ["xauth"], "reference": "xauth add display_name protocol_name key"}
+{"q": "show me the file contents but underline each line with dashes", "cmds": ["ul"], "reference": "ul --indicated file.txt"}
+{"q": "install this plugin from the RubyGems remote repo", "cmds": ["vagrant"], "reference": "vagrant plugin install vagrant_vbguest"}
+{"q": "what users are logged into this group", "cmds": ["lslogins"], "reference": "lslogins --groups groups"}
+{"q": "where is the help for the compressed file command kept?", "cmds": ["lzcat"], "reference": "tldr xz"}
+{"q": "what packages are installed just for me", "cmds": ["pip"], "reference": "pip list --user"}
+{"q": "i need to see if there's any patch for known flaw in my os", "cmds": ["pro"], "reference": "pro fix CVE-number"}
+{"q": "how do i only add currently tracked files with git add", "cmds": ["git"], "reference": "git add --update"}
+{"q": "show only branches from the main remote", "cmds": ["git"], "reference": "git ls-remote --heads"}
+{"q": "i need to set an environment variable locally", "cmds": ["local"], "reference": "local variable=\"value\""}
+{"q": "create a place to recover lost files in my current folder", "cmds": ["mklost+found"], "reference": "mklost+found"}
+{"q": "list packages that can be upgraded on my system", "cmds": ["apt"], "reference": "apt list --upgradable"}
+{"q": "show me the status of all installed services and daemons", "cmds": ["systemctl"], "reference": "systemctl list-unit-files"}
+{"q": "i need to make an empty branch for development work", "cmds": ["git"], "reference": "git fresh-branch branch_name"}
+{"q": "list all files and directories in a commit, including nested ones", "cmds": ["git"], "reference": "git ls-tree -r commit_hash"}
+{"q": "what are all the configuration settings available?", "cmds": ["getconf"], "reference": "getconf -a"}
+{"q": "i need to read out what happened on my system when someone logged in", "cmds": ["utmpdump"], "reference": "utmpdump /var/log/wtmp"}
+{"q": "change alice's password with its encrypted form", "cmds": ["chpasswd"], "reference": "printf \"username:new_encrypted_password\" | sudo chpasswd --encrypted"}
+{"q": "terminate a program using the SIGHUP (hang up) signal. Many daemons will reload instead of terminating", "cmds": ["kill"], "reference": "kill -HUP process_id"}
+{"q": "how do i bring a file back to its state at a certain commit without staging it", "cmds": ["git"], "reference": "git restore --source commit path/to/file"}
+{"q": "how do I build a Linux ext2 filesystem on a partition?", "cmds": ["mkfs"], "reference": "sudo mkfs /dev/sdXY"}
+{"q": "what's the command to trigger a run manually?", "cmds": ["logrotate"], "reference": "logrotate path/to/logrotate.conf --force"}
+{"q": "show me who is connected on each network interface", "cmds": ["ip"], "reference": "ip neighbor"}
+{"q": "I want to display information about the filesystem where a specific file is located", "cmds": ["stat"], "reference": "stat --file-system path/to/file"}
+{"q": "make several files named with increasing numbers, like 10, 11, 12", "cmds": ["touch"], "reference": "touch path/to/file{1..10}"}
+{"q": "how do i get a list of all git commands", "cmds": ["git"], "reference": "git help --all"}
+{"q": "how do i unplug a kernel module and see lots of info?", "cmds": ["rmmod"], "reference": "sudo rmmod --verbose module_name"}
+{"q": "push my changes to the default remote location", "cmds": ["hg"], "reference": "hg push"}
+{"q": "run maintenance on all repos listed in my config file", "cmds": ["git"], "reference": "git for-each-repo --config maintenance.repo maintenance run"}
+{"q": "show me what info is in my xauth authority file", "cmds": ["xauth"], "reference": "xauth info"}
+{"q": "how do i update a snap package", "cmds": ["snap"], "reference": "snap refresh package"}
+{"q": "i need to create a Vagrantfile with custom template", "cmds": ["vagrant"], "reference": "vagrant init --template path/to/file.erb"}
+{"q": "how do i adjust the date taken info of all photos in this folder by 1 day and 2 hours", "cmds": ["exiftool"], "reference": "exiftool \"-AllDates-=0:0:1 2:0:0\" -extension jpg"}
+{"q": "clear cloud-init logs and temp files to allow re-execution", "cmds": ["cloud-init"], "reference": "cloud-init clean"}
+{"q": "show me my routing table", "cmds": ["routel"], "reference": "routel"}
+{"q": "show me all commands available in the current project", "cmds": ["php"], "reference": "php artisan help"}
+{"q": "how do I commit all files matching a specified pattern?", "cmds": ["hg"], "reference": "hg commit --include pattern"}
+{"q": "how can i use vi in my terminal editor", "cmds": ["set"], "reference": "set -o vi"}
+{"q": "create a block device file", "cmds": ["mknod"], "reference": "sudo mknod path/to/device_file b major_device_number minor_device_number"}
+{"q": "compile this source into assembler code", "cmds": ["gcc"], "reference": "gcc --assemble path/to/source.c"}
+{"q": "how to open the interactive menu for timezone selection and print the selected timezone to `stdout`", "cmds": ["tzselect"], "reference": "tzselect"}
+{"q": "check if some files are ignored by git", "cmds": ["git"], "reference": "git check-ignore path/to/file_or_directory1 path/to/file_or_directory2 ..."}
+{"q": "command to show DNS settings", "cmds": ["resolvectl"], "reference": "resolvectl"}
+{"q": "find regex matches in man page descriptions", "cmds": ["whatis"], "reference": "whatis --regex 'wish[0-9]\\.[0-9]'"}
+{"q": "what's the date format set on my system", "cmds": ["locale"], "reference": "locale date_fmt"}
+{"q": "what's the command to create a new branch for the next commit?", "cmds": ["hg"], "reference": "hg branch branch_name"}
+{"q": "ensure script exits with error", "cmds": ["false"], "reference": "false"}
+{"q": "compute a SHA384 hash from standard input", "cmds": ["sha384sum"], "reference": "command | sha384sum"}
+{"q": "how do i update to a specific version of my project", "cmds": ["hg"], "reference": "hg update --rev revision"}
+{"q": "show me all currently mounted file systems", "cmds": ["findmnt"], "reference": "findmnt"}
+{"q": "i need to add a public key to apt's trust store", "cmds": ["apt-key"], "reference": "apt-key add public_key_file.asc"}
+{"q": "install packages listed in a requirements.txt file", "cmds": ["pip"], "reference": "pip install --requirement requirements.txt"}
+{"q": "load saved firewall rules from a file", "cmds": ["ip"], "reference": "sudo ip < path/to/ip_rules.dat rule restore"}
+{"q": "split input into pieces of about one megabyte and run a command on each", "cmds": ["parallel"], "reference": "cat big_file.txt | parallel --pipe --block 1M command"}
+{"q": "can you share my terminal session so others can see it live?", "cmds": ["mkfifo"], "reference": "mkfifo path/to/pipe; script --flush path/to/pipe"}
+{"q": "what's the command to restart more than one unit?", "cmds": ["systemctl"], "reference": "systemctl restart unit1 unit2 ..."}
+{"q": "how to create a symbolic link relative to where the link is located", "cmds": ["ln"], "reference": "ln --symbolic path/to/file_or_directory path/to/symlink"}
+{"q": "show me all the keyboard shortcuts defined in my bind configuration", "cmds": ["bind"], "reference": "bind -X"}
+{"q": "how many processors are there on my machine, including hidden ones", "cmds": ["nproc"], "reference": "nproc --all"}
+{"q": "delete a vlan from an interface", "cmds": ["bridge"], "reference": "sudo bridge vlan delete dev lanX vid vlan_id"}
+{"q": "what's the value of user.email in my git config", "cmds": ["git"], "reference": "git config alias.unstage"}
+{"q": "how to set the label of a swap area", "cmds": ["swaplabel"], "reference": "swaplabel --label new_label path/to/file"}
+{"q": "what's the command to disable all swap areas in `/proc/swaps`?", "cmds": ["swapoff"], "reference": "sudo swapoff --all"}
+{"q": "how do i run a bash script and halt on first error", "cmds": ["dash"], "reference": "dash -e path/to/script.sh"}
+{"q": "set a default shell for a user named alice", "cmds": ["chsh"], "reference": "sudo chsh --shell path/to/shell username"}
+{"q": "start tracing the execution of a program", "cmds": ["strace"], "reference": "strace program"}
+{"q": "validate and format the json data from stdin into pretty-printed output", "cmds": ["python"], "reference": "echo '{\"key\": \"value\"}' | python -m json.tool"}
+{"q": "set rights using the octal notation", "cmds": ["chmod"], "reference": "chmod 644 path/to/file"}
+{"q": "recompress this file using the slowest method for maximum compression", "cmds": ["znew"], "reference": "znew -9 path/to/file1.Z"}
+{"q": "i need to find which process is using a specific file", "cmds": ["lsof"], "reference": "lsof -t path/to/file"}
+{"q": "list locks but just the raw info, no headers", "cmds": ["lslocks"], "reference": "lslocks --raw --noheadings"}
+{"q": "how to show the notes attached to a given object (defaults to `HEAD`)", "cmds": ["git"], "reference": "git notes show object"}
+{"q": "how do i extract a new project's history from an old one using a subtree", "cmds": ["git"], "reference": "git subtree split --prefix path/to/directory repository_url --branch branch_name"}
+{"q": "how can i see which files would be removed when cleaning up a git repo", "cmds": ["git"], "reference": "git clean --dry-run"}
+{"q": "i need numbered lines, right aligned without leading zeros", "cmds": ["nl"], "reference": "nl --number-format rz|ln|rn"}
+{"q": "show basic GPT info for a disk", "cmds": ["sgdisk"], "reference": "sudo sgdisk --print /dev/sdX"}
+{"q": "i need to exit systemctl with status code 42", "cmds": ["systemctl"], "reference": "systemctl exit code --user"}
+{"q": "how can I disable only if marked as disabled in the preset policy?", "cmds": ["systemctl"], "reference": "systemctl preset unit --preset-mode disable-only"}
+{"q": "show me the differences between two logs with color highlighting", "cmds": ["diff"], "reference": "diff --minimal --color=always path/to/old_file path/to/new_file"}
+{"q": "just show one attribute from a module info file", "cmds": ["modinfo"], "reference": "modinfo --field author|description|license|parm|filename|version|... kernel_module"}
+{"q": "use my custom mailmap file for name and email normalization", "cmds": ["git"], "reference": "git check-mailmap --mailmap-file path/to/file email@example.com"}
+{"q": "show me all installed keys", "cmds": ["apt-key"], "reference": "apt-key list"}
+{"q": "apply a patch to my project and make it into commits", "cmds": ["git"], "reference": "git am path/to/file.patch"}
+{"q": "copy the code directory to a remote server using secure copy protocol", "cmds": ["git"], "reference": "git scp remote_name path/to/directory"}
+{"q": "I want to search for a pattern in all files showing line numbers of matches", "cmds": ["xzgrep"], "reference": "xzgrep --line-number \"search_pattern\" path/to/file"}
+{"q": "get detailed info about a package i want to check", "cmds": ["brew"], "reference": "brew info --verbose formula|cask"}
+{"q": "save highlighted code as an HTML file", "cmds": ["pygmentize"], "reference": "pygmentize -f html -o output_file.html input_file.py"}
+{"q": "i want to see the default commands for setting colors in directories using C shell", "cmds": ["dircolors"], "reference": "dircolors --c-shell"}
+{"q": "show me all commands run today with timestamps", "cmds": ["history"], "reference": "history -d|f|i|E"}
+{"q": "command to generate password hash in APR1 algorithm", "cmds": ["openssl"], "reference": "openssl passwd -apr1"}
+{"q": "who am i according to systemd", "cmds": ["systemctl"], "reference": "systemctl whoami"}
+{"q": "extract files from an archive using just the file name inside", "cmds": ["ptargrep"], "reference": "ptargrep --basename \"search_pattern\" path/to/file"}
+{"q": "start a background job without stopping others", "cmds": ["bg"], "reference": "bg %job_number"}
+{"q": "get the git commit hash from this tar archive or exit if it's empty", "cmds": ["git"], "reference": "git < path/to/archive.tar get-tar-commit-id"}
+{"q": "how do i switch to normal mode and undo last action in vim", "cmds": ["vim"], "reference": "<Esc><u>"}
+{"q": "what's the command to terminate a process using the SIGINT (interrupt) signal, which is the same signal sent by pressing `<Ctrl c>`?", "cmds": ["killall"], "reference": "killall -SIGINT process_name"}
+{"q": "get length of this string", "cmds": ["expr"], "reference": "expr length \"string\""}
