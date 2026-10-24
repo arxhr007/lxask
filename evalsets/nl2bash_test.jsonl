@@ -1,0 +1,150 @@
+{"q": "find all regular files  then display the number of occurrences of banana without lines not proper end", "cmds": ["find"], "reference": "find . -type f -print0| xargs -0 grep -c banana| grep -v \":0$\""}
+{"q": "List the combined path of the current working directory and \"file.txt\"", "cmds": ["ls"], "reference": "ls \"`pwd`/file.txt\""}
+{"q": "(Linux-specific) Display a tree-like view of USB devices, letting the user page through it with the arrow keys, with the Q key to quit.", "cmds": ["lsusb"], "reference": "sudo lsusb -t|less"}
+{"q": "Exclude directory from find . command", "cmds": ["find"], "reference": "find -name \"*.js\" -not -path \"./directory/*\""}
+{"q": "Set variable 'rav' to the contents of 'var' spelled backwards.", "cmds": ["$var"], "reference": "rav=$(echo $var | rev)"}
+{"q": "find all files under the current folder except dir1 dir2 dir3  folder", "cmds": ["find"], "reference": "find . -type d \\( -path dir1 -o -path dir2 -o -path dir3 \\) -prune -o -print"}
+{"q": "Gets IP addresses of all active network interfaces.", "cmds": ["ifconfig"], "reference": "ifconfig | grep -oP \"(?<=inet addr:).*?(?=Bcast)\""}
+{"q": "Save the short DNS lookup output of $WORKSTATION to 'WORKSTATION_IP' variable", "cmds": ["+short"], "reference": "WORKSTATION_IP=`dig +short $WORKSTATION`"}
+{"q": "change owner and group of the directory  $dstdir\" to the user and group of the file \"$srcdir\"", "cmds": ["chown"], "reference": "chown $(stat -f%u:%g \"$srcdir\") \"$dstdir\""}
+{"q": "Convert relative symbolic link \"$link\" to absolute symbolic link", "cmds": ["ln"], "reference": "ln -sf \"$(readlink -f \"$link\")\" \"$link\""}
+{"q": "Print numbered list of all third-level files under the current directory", "cmds": ["ls"], "reference": "ls -d -1 $PWD/**/*/* | cat -n"}
+{"q": "Print lines 2960 to 2966 from the output of \"history\"", "cmds": ["history"], "reference": "history | sed -n '2960,2966p'"}
+{"q": "Search the regular files of the current directory tree for string \"stringYouWannaFind\", ignoring the case", "cmds": ["find"], "reference": "find ./ -type f -print -exec grep -n -i \"stringYouWannaFind\" {} \\;"}
+{"q": "Print lines 10000 to 10010 from input \"seq 1 100000\"", "cmds": ["seq"], "reference": "seq 1 100000 | tail -n +10000 | head -n 10"}
+{"q": "Copy directory hierarchy \"dir\" and all its .txt files to \"dir_txt\"", "cmds": ["find"], "reference": "find dir/ -name '*.txt' | xargs cp -a --target-directory=dir_txt/ --parents"}
+{"q": "Calculate the md5 sum of \"yourstring\"", "cmds": ["echo"], "reference": "echo -n \"yourstring\" |md5sum"}
+{"q": "Find all .txt files in the user's home directory and below.", "cmds": ["find"], "reference": "find ~/ -name '*.txt'"}
+{"q": "search for the file picasso in the folder /home/calvin/ (case insensitive search)", "cmds": ["find"], "reference": "find /home/calvin/ -iname “picasso”"}
+{"q": "Replace all ' ' with '-' from standard input", "cmds": ["tr"], "reference": "tr  ' ' '-'"}
+{"q": "Find x* files/directories under current directory whose status was changed less than 1 day ago and move them to /tmp/other", "cmds": ["find"], "reference": "find . -name \"x*\" -print0 | strace xargs -0 -I '{}' mv '{}' /tmp/other"}
+{"q": "Rename all *$lower1* files under current directory without descending into .git directory by replacing the first occurrence of $lower1 with $lower2 in their paths", "cmds": ["find"], "reference": "find . -name .git -prune -o type f -name \"*$lower1*\" -exec mmv \"*$lower1*\" \"#1$lower2#2\" {} +"}
+{"q": "List all unique parent directories of .class files found under the current directory", "cmds": ["find"], "reference": "find -name '*.class' -printf '%h\\n' | sort -u"}
+{"q": "Find all files that are less than 50 bytes", "cmds": ["find"], "reference": "find / -size -50c"}
+{"q": "delete all the regular files in the temp folder which have not been modified in the last 24 hours", "cmds": ["find"], "reference": "find /tmp/ -type f -mtime +1 -delete"}
+{"q": "Rename all .jpg files to .jpeg under the current directory and below", "cmds": ["find"], "reference": "find  | rename 's/\\.jpg$/.jpeg/'"}
+{"q": "Find all files/directories with '.js' extension under current directory tree excluding paths that contain the directory './directory'", "cmds": ["find"], "reference": "find -name \"*.js\" -not -path \"./directory/*\""}
+{"q": "Find all *.txt files/directories under current directory", "cmds": ["find"], "reference": "find -name \\*.txt"}
+{"q": "Find all regular files named 'whatever' under current directory tree excluding all paths that contain any hidden directory", "cmds": ["find"], "reference": "find . \\( ! -regex '.*/\\..*' \\) -type f -name \"whatever\""}
+{"q": "Unzip \"myDB.sql.gz\" to standard output as input to \"pg_restore ...\"", "cmds": ["gzip"], "reference": "gzip -cd myDB.sql.gz | pg_restore ..."}
+{"q": "find the type & description of all the regular/normal files in the home folder", "cmds": ["find"], "reference": "find /home -type f -print0 | xargs -0 file"}
+{"q": "Prompt the user with a question \"This is the question I want to ask?\" and save \"y\" or \"n\" in variable \"REPLY\" in zsh", "cmds": ["read"], "reference": "read REPLY\\?\"This is the question I want to ask?\""}
+{"q": "create directory foo", "cmds": ["mkdir"], "reference": "mkdir -p foo"}
+{"q": "Print the list of files in the current directory tree skipping SVN files", "cmds": ["find"], "reference": "find . -path '*/.svn*' -prune -o -print"}
+{"q": "Counts lines in each of *.php files in a current folder and subfolders ignoring 'tests*' folders and prints total count as well.", "cmds": ["find"], "reference": "find . -name \"*.php\" -not -path \"./tests*\" | xargs wc -l"}
+{"q": "display all the files in the current folder which do not belong to any group", "cmds": ["find"], "reference": "find . -nogroup"}
+{"q": "Find all the files in file system which are modified in last 1 hour", "cmds": ["find"], "reference": "find / -mmin -60"}
+{"q": "Find the sorted and unique parent directory paths appended with : of all the files that are executable by owner under ~/code directory without descending into hidden directories and redirect the output to the file ~/.codepath", "cmds": ["find"], "reference": "find ~/code -name '.*' -prune -o -type f -a -perm /u+x -printf ':%h\\n' |sort |uniq |tr -d '\\n' > ~/.codepath"}
+{"q": "Unsets DUALCASE variable.", "cmds": ["unset"], "reference": "unset DUALCASE"}
+{"q": "Count the number of users logged in", "cmds": ["who"], "reference": "who | wc -l"}
+{"q": "Calculate the md5 sum of the contents of \"$FILES\"", "cmds": ["cat"], "reference": "cat $FILES | md5sum"}
+{"q": "Search the current directory tree for files containing \"album\" and \"vacations\" in their names and not containing \"2015\"", "cmds": ["find"], "reference": "find . -name \"*album*\" -a -name \"*vacations*\" -a -not -name \"*2015*\""}
+{"q": "search for the directory \"ora10\" in the entire file system", "cmds": ["find"], "reference": "find / -type d -name \"ora10\""}
+{"q": "Print the top 10 commands with their use count", "cmds": ["history"], "reference": "history | awk '{ print $2 }' | sort | uniq -c |sort -rn | head"}
+{"q": "Delete all the 'test' directories from all directories under maximum 1 level down the current directory that contain directories named 'test' and 'live'", "cmds": ["find"], "reference": "find -maxdepth 1 -type d -exec sh -c \"cd {} && [ -d test ] && [ -d live ] && rm -rvf test \" {} \\;"}
+{"q": "Search for files/directories named 'fileName.txt' under current directory tree without traversing into './ignored_directory'", "cmds": ["find"], "reference": "find . -path ./ignored_directory -prune -o -name fileName.txt -print"}
+{"q": "Remove files that are less than 1MB in size under <directory>", "cmds": ["find"], "reference": "find <directory> -type f -size -1M -print0  | xargs -0 rm"}
+{"q": "Installs locally located 'ffmpeg-2.6.4-1.fc22.x86_64.rpm' package.", "cmds": ["yum"], "reference": "yum install ffmpeg-2.6.4-1.fc22.x86_64.rpm"}
+{"q": "Find all files/directories that start with 'screen' (case insensitive) in their names under user's home directory tree", "cmds": ["find"], "reference": "find ~ -iname \"screen*\""}
+{"q": "Find all files/directories under current directory that match the case insensitive regex ./\\(EA\\|FS\\)_.*", "cmds": ["find"], "reference": "find . -iregex './\\(EA\\|FS\\)_.*'"}
+{"q": "Execute \"ls -l\" every 2 seconds", "cmds": ["watch"], "reference": "watch 'ls -l'"}
+{"q": "Show filename and filetype description of all PHP files in current directory whose name or filetype description includes \"UTF\"", "cmds": ["file"], "reference": "file *.php | grep UTF"}
+{"q": "Measure the disk space taken up by all *.txt files in the /path directory tree", "cmds": ["find"], "reference": "find /path -iname '*.txt' | perl -lane '$sum += -s $_; END {print $sum}'"}
+{"q": "find all the reguar/normal php files in current directory.", "cmds": ["find"], "reference": "find . -type f -name \"*.php\""}
+{"q": "find regular which case-insensitive name is foo in current directory", "cmds": ["find"], "reference": "find . -iname foo -type f"}
+{"q": "Search everywhere for hidden file `.profile'", "cmds": ["find"], "reference": "find / -name .profile"}
+{"q": "Locate world-writable files and directories on the system", "cmds": ["find"], "reference": "find / -path /proc -prune -o -perm -2 ! -type l -ls"}
+{"q": "test if the 2nd column in file A is in the reverse order of the second column of file B", "cmds": ["diff"], "reference": "diff --brief <(awk '{print $2}' A) <(tac B | awk '{print $2}')"}
+{"q": "search for all the files in the folder /data/images which have been modified after /tmp/start and before /tmp/end and save the output list to output.txt", "cmds": ["find"], "reference": "find /data/images -type f -newer /tmp/start -not -newer /tmp/end > output.txt"}
+{"q": "Overwrites file 'filename' with random content 35 times, finally writes it with zeros, truncates and deletes.", "cmds": ["shred"], "reference": "shred -uzn 35 filename"}
+{"q": "find all text files in current folder and delete all the files that have the word foo in their name", "cmds": ["find"], "reference": "find . -name \".txt\" | grep \"foo\" | xargs rm"}
+{"q": "Create an empty file in each directory named \"mydir\" under current directory.", "cmds": ["find"], "reference": "find . -type d -name \"mydir\" -exec touch '{}/abc.txt' \\;"}
+{"q": "Search  all directory from /usr downwards for files whose inode number is 1234 and print them .", "cmds": ["find"], "reference": "find /usr -inum 1234 -print"}
+{"q": "Create a symbolic link named \"$HOME/bin/\" to \"$HOME/downloads/fnord\"", "cmds": ["ln"], "reference": "ln -s $HOME/downloads/fnord $HOME/bin/"}
+{"q": "Print contents of \"file\" as space separated hexadecimal bytes on a single line", "cmds": ["od"], "reference": "od -t x1 -An file |tr -d '\\n '"}
+{"q": "Search files \"file-containing-can't\" in the current directory tree for the string \"can't\"", "cmds": ["find"], "reference": "find . -name \"file-containing-can't\" -exec grep \"can't\" '{}' \\; -print"}
+{"q": "Rename \"file001abc.txt\" to \"abc1.txt\"", "cmds": ["mv"], "reference": "mv file001abc.txt abc1.txt"}
+{"q": "Shows state of shell option 'extglob'.", "cmds": ["shopt"], "reference": "shopt extglob"}
+{"q": "Remove the \"123_\" prefix from all filenames of .txt files in current directory.", "cmds": ["rename"], "reference": "rename 's/^123_//' *.txt"}
+{"q": "Finds out what groups a current user has.", "cmds": ["groups"], "reference": "groups"}
+{"q": "Search the current user's home directory and its sub-directories for any files accessed after alldata.tar was last accessed and add them to that same tar archive.", "cmds": ["find"], "reference": "find ~/ -newer alldata.tar \t-exec tar uvf alldata.tar {} \\;"}
+{"q": "Move \"file.txt\" to docker container \"$CONTAINER_ID\" in path \"/var/lib/docker/devicemapper/mnt/$CONTAINER_ID/rootfs/root/file.txt\"", "cmds": ["mv"], "reference": "mv -f file.txt /var/lib/docker/devicemapper/mnt/$CONTAINER_ID/rootfs/root/file.txt"}
+{"q": "Creates temporary file with appended suffix '.cmd' and saves path to it in 'LGT_TEMP_FILE' variable.", "cmds": ["--suffix"], "reference": "LGT_TEMP_FILE=\"$(mktemp --suffix .cmd)\""}
+{"q": "Search the /etc directory tree for files accessed within the last 24 hours", "cmds": ["find"], "reference": "find /etc -atime -1"}
+{"q": "Recursively search the current directory for unique entries of \"searchtext\" and replace \"matchtext\" with \"replacetext\"", "cmds": ["grep"], "reference": "grep -r -l 'searchtext' . | sort | uniq | xargs perl -e \"s/matchtext/replacetext/\" -pi"}
+{"q": "Search the current directory tree for all regular non-hidden files except *.o", "cmds": ["find"], "reference": "find ./ -type f -name \"*\" -not -name \"*.o\""}
+{"q": "Print the names of all files in the home directory and its subdirectories recursively whose MIME type is video", "cmds": ["find"], "reference": "find ~ -type f -exec file -i {} + | grep video"}
+{"q": "Print a hex dump byte to byte of the output of \"printf Aa\"", "cmds": ["printf"], "reference": "printf Aa | od -t x1"}
+{"q": "Save the current working directory with resolved symbolic links to variable \"real1\"", "cmds": ["-P)"], "reference": "real1=$(pwd -P)"}
+{"q": "search for a word in all the files in the current directory and display the file paths relative to the current directory", "cmds": ["find"], "reference": "find . -exec grep -l foo {} +"}
+{"q": "find all regular files under the /etc/sysconfig directory that were accessed in the last 30 minutes", "cmds": ["find"], "reference": "find /etc/sysconfig -amin -30 -type f"}
+{"q": "Lists content of all subfolder (without recursion) in a current folder.", "cmds": ["ls"], "reference": "ls -d -1 $PWD/**/*"}
+{"q": "set alias \"m\" for command \"mplayer -novideo -loop 0\"", "cmds": ["alias"], "reference": "alias m=\"mplayer -novideo -loop 0\""}
+{"q": "Find all *.dbf files/directories in entire file system", "cmds": ["find"], "reference": "find / -name \"*.dbf\""}
+{"q": "Write standard output and error to the console and append to file \"log\"", "cmds": ["aaa.sh"], "reference": "./aaa.sh |& tee -a log"}
+{"q": "find for xml files in current folder using regular expressions", "cmds": ["find"], "reference": "find ./ -regex \"cmn-.*[\\x4e00-\\x9fa5]*\\.xml\""}
+{"q": "Check all .txt files whether they contain \"needle\"", "cmds": ["find"], "reference": "find . -type f -iname \"*.txt\" -print | xargs grep \"needle\""}
+{"q": "search for regular files in the current folder which path is not  \"./.*\" and not \"./*/.*\"", "cmds": ["find"], "reference": "find ./ -type f -name \"*\" ! -path \"./.*\" ! -path \"./*/.*\""}
+{"q": "Log in as \"middleuser\" with key \"./middle_id.pem\" and forward port 22 on host \"middle.example.org\" to port 2222 on localhost", "cmds": ["ssh"], "reference": "ssh -i ./middle_id.pem -R 22:localhost:2222 middleuser@middle.example.org"}
+{"q": "Find files matching the regex 'myregex' in their contents and append the list of these files to outfile.txt", "cmds": ["find"], "reference": "find . -exec grep -l -e 'myregex' {} \\; >> outfile.txt"}
+{"q": "Display the number of regular files under current directory tree", "cmds": ["find"], "reference": "find . -type f -print0 | tr -dc '\\0' | wc -c"}
+{"q": "file all the Sticky Bit set files whose permission are 551", "cmds": ["find"], "reference": "find / -perm 1551"}
+{"q": "Save the absolute path of the current script to variable \"SELF\"", "cmds": ["255)"], "reference": "SELF=$(readlink /proc/$$/fd/255)"}
+{"q": "find all the regular/normal files in all the directories in the /some/dir and delete them", "cmds": ["find"], "reference": "find /some/dir -type d -exec find {} -type f -delete \\;"}
+{"q": "Print the current user name associated with standard input", "cmds": ["who"], "reference": "who -m | awk '{print $1;}'"}
+{"q": "Recursively change the group ownership to \"laravel\" in \"./bootstrap/cache\"", "cmds": ["chown"], "reference": "sudo chown -R :laravel ./bootstrap/cache"}
+{"q": "Find all files named \"file.ext\" within the current folder and print the path where each one is located", "cmds": ["find"], "reference": "find `pwd` -name \"file.ext\" -exec echo $(dirname {}) \\;"}
+{"q": "Execute 'echo -e \"\\033[31mHello World\\033[0m\"' every without color support 2 seconds", "cmds": ["watch"], "reference": "watch 'echo -e \"\\033[31mHello World\\033[0m\"'"}
+{"q": "Find all configration files in Home directory & Subtitute permanently in files", "cmds": ["find"], "reference": "find $HOME -name \"*.conf\" -exec sed -i 's/vermin/pony/g' {} \\;"}
+{"q": "Recursively copy everything in /source/path whose name doesn't begin with a period, to /destination/path, without overwriting existing files, and outputting a line for each file copied or skipped.", "cmds": ["cp"], "reference": "cp -Rvn /source/path/* /destination/path/"}
+{"q": "Execute \"killall -USR1 dd\" every minute", "cmds": ["watch"], "reference": "watch -n 60 killall -USR1 dd"}
+{"q": "Print the file paths and their sizes for all files under full_path_to_your_directory", "cmds": ["find"], "reference": "find full_path_to_your_directory -type f -printf '%p %s\\n'"}
+{"q": "Find out all hard links in the /home directory to file1", "cmds": ["find"], "reference": "find /home -xdev -samefile file1"}
+{"q": "Find all files/directories under /var/www/some/subset and change their owner and group to www-data", "cmds": ["find"], "reference": "sudo find /var/www/some/subset -print0 | xargs -0 chown www-data:www-data"}
+{"q": "Find all directories under current directory and change their permission to 700", "cmds": ["find"], "reference": "find . -type d -exec chmod 700 {} \\;"}
+{"q": "Create thumbnails from the first page of each PDF files under /path/to/dir", "cmds": ["find"], "reference": "find /path/to/dir -name '*.pdf' -exec convert -thumbnail x80 {}[0] {}-thumb.png \\;"}
+{"q": "Execute \"1\" and write standard output and error to standard output and file \"${LOG_FILE}\"", "cmds": ["1"], "reference": "exec 1 2>&1 | tee ${LOG_FILE}"}
+{"q": "Find all the files which are modified in last 1 hour in entire file system", "cmds": ["find"], "reference": "find / -mmin -60"}
+{"q": "Search directory foo for files containing \"foo/bar\" in their full names", "cmds": ["find"], "reference": "find foo -path foo/bar -print"}
+{"q": "Delete and count files in $DIR_TO_CLEAN that are older than $DAYS_TO_SAVE days", "cmds": ["find"], "reference": "find \"$DIR_TO_CLEAN\" -mtime +$DAYS_TO_SAVE -exec bash -c 'printf \"count=0; for f; do rm \"$f\" && (( count++ )); done; printf \"Total: %d\\n\" $count' _ {} +"}
+{"q": "Remove all files/directories in the current directory without '.git' and '.gitignore'", "cmds": ["find"], "reference": "find -mindepth 1 -depth -print0 | grep -vEzZ '(\\.git(/|$)|/\\.gitignore$)' | xargs -0 rm -rvf"}
+{"q": "Search the current directory tree for regular files whose names end with \"keep.${SUFFIX}\", where $SUFFIX is a shell variable", "cmds": ["find"], "reference": "find . -type f -name \"*keep.${SUFFIX}\""}
+{"q": "find from / a file called 'toBeSearched.file', redirecting error messages to the output and filtering any lines containing the text \"Permission denied\"", "cmds": ["find"], "reference": "find /. -name 'toBeSearched.file' 2>&1 | grep -v 'Permission denied'"}
+{"q": "Locate symbolic links in /usr and below", "cmds": ["find"], "reference": "find /usr -type l"}
+{"q": "Copy all .txt files from the dir/ directory tree along with their parent directories hierarchy", "cmds": ["find"], "reference": "find dir/ -name '*.txt' | xargs cp -a --target-directory=dir_txt/ --parents"}
+{"q": "find all the files that have been changed exactly 24 hours ago", "cmds": ["find"], "reference": "find . -ctime 1 -type f"}
+{"q": "Display last 100 lines of file-with-line-too-long.txt, waiting for user input after each page.", "cmds": ["tail"], "reference": "tail -1000 file-with-line-too-long.txt | more"}
+{"q": "Count all the lines of all files with names ending with 'php' in current directory recursively", "cmds": ["find"], "reference": "find -name '*php' | xargs cat | wc -l"}
+{"q": "Get current directory name without full path, ie. the part after the last /", "cmds": ["pwd"], "reference": "pwd | awk -F / '{print $NF}'"}
+{"q": "display all the .sh scripts in the folder /usr", "cmds": ["find"], "reference": "find /usr -name \\*.sh"}
+{"q": "Print list of disk and mountpoint of disks matching \"/dev/sd*\" into \"mount_point\" as a background task", "cmds": ["mount"], "reference": "mount | grep -i \"/dev/sd.*\" | awk '{ print NR \"\\t\" $1 \"\\t\" $3 }' > mount_output &"}
+{"q": "List all *.jar files/directories under /usr, /home and /tmp directory", "cmds": ["find"], "reference": "find /usr /home  /tmp -name \"*.jar\""}
+{"q": "Find all files/directories with '.what_to_find' extension under current directory tree and show the list by excluding paths that contain 'excludeddir1' and 'excludeddir2'", "cmds": ["find"], "reference": "find . -name '*.what_to_find' | grep -v exludeddir1 | grep -v excludeddir2"}
+{"q": "Print '111 22 3\\n4 555 66\\n' by replacing the spaces with tabs and '\\n' with newlines", "cmds": ["echo"], "reference": "echo -en '111 22 3\\n4 555 66\\n' | tr ' ' '\\t'"}
+{"q": "Remount \"extX\" filesystem \"/dev/hdaX\" on \"/\" without writing in \"/etc/mtab\"", "cmds": ["mount"], "reference": "mount -n -o remount -t extX /dev/hdaX /"}
+{"q": "Display the sizes and filepaths of all files/directories with '.undo' extension under current directory tree", "cmds": ["find"], "reference": "find -name *.undo -print0 | du -hc --files0-from=-"}
+{"q": "Find all files named \"foo_bar\" in the current directory recursively", "cmds": ["find"], "reference": "find -name foo_bar"}
+{"q": "Recursively removes all empty folders from the X folder.", "cmds": ["find"], "reference": "find X -depth -type d -exec rmdir {} \\;"}
+{"q": "Find all files whose names contain 'patch-' in the /usr/ports directory tree and count the number of lines with ^M in them", "cmds": ["find"], "reference": "find /usr/ports/ -name '*patch-*' -exec grep `printf '\\15'` -l '{}' '+' | wc -l"}
+{"q": "display all the statistics of the files in the current folder and discard the errors. ( + symbol at the end is used to give stat bulk input than a single file )", "cmds": ["find"], "reference": "find . -type f -exec stat {} + > /dev/null"}
+{"q": "Remount \"point\" subtree to \"mnt\" as a bind mount", "cmds": ["mount"], "reference": "mount --bind point mnt"}
+{"q": "display all the C, CPP, Header files in the kat folder", "cmds": ["find"], "reference": "find kat -type f \\( -name \"*.c\" -o -name \"*.cpp\" -o -name \"*.h\" \\)"}
+{"q": "display all the empty files in the folder /opt (file size 0 bytes)", "cmds": ["find"], "reference": "find /opt -type f -empty"}
+{"q": "Find all files that have either a .php or a .js extension", "cmds": ["find"], "reference": "find -regextype posix-egrep -regex '.*(php|js)$'"}
+{"q": "Split the contents of \"file1 file2 ... file40000\" into 1445 files in a round robin fashion with prefix \"outputprefix\" and numeric suffixes", "cmds": ["cat"], "reference": "cat file1 file2 ... file40000 | split -n r/1445 -d - outputprefix"}
+{"q": "Find the password file between sub-directory level 2 and 4.", "cmds": ["find"], "reference": "find -mindepth 3 -maxdepth 5 -name passw"}
+{"q": "Print name of the block device containing the file system containing $path.", "cmds": ["df"], "reference": "df -P \"$path\" | awk 'BEGIN {FS=\"[ ]*[0-9]+%?[ ]+\"}; NR==2 {print $1}'"}
+{"q": "Request DNS record for  domain 'dragon-architect.com' with tracing and additional section, and extract third block of text, separated between two new lines.", "cmds": ["dig"], "reference": "dig +trace +additional dragon-architect.com | awk 'NR==3' RS=\"\\n\\n\""}
+{"q": "find all files in the current folder that are modified exactly 1 minute ago", "cmds": ["find"], "reference": "find -mmin 1 -print"}
+{"q": "Continuously print \"123456789\" and line buffer the output via \"grep\" for input to \"{ head -n 1; head -n 1; }\"", "cmds": ["yes"], "reference": "yes 123456789 | grep --line-buffered . | { head -n 1; head -n 1; }"}
+{"q": "Find all files that were modified later than ordinary_file in the current directory and its sub-directories.", "cmds": ["find"], "reference": "find -newer ordinary_file"}
+{"q": "Search /var/log for logs larger than 10 megabytes", "cmds": ["find"], "reference": "find /var/log -size +10M -ls"}
+{"q": "Renames all *.html files in a current directory to *.txt files.", "cmds": ["ls"], "reference": "ls *.html | xargs -I {} sh -c 'mv $1 `basename $1 .html`.txt' - {}"}
+{"q": "Search all files in the current directory tree, except GIT files, for \"string-to-search\"", "cmds": ["find"], "reference": "find . -name .git -prune -o -print | xargs grep \"string-to-search\""}
+{"q": "Search the system for files and directories owned by user `admin'", "cmds": ["find"], "reference": "find / -user admin -print"}
+{"q": "Find all files under $1 not matching the regex '.*/\\..*' and execute hashmove on each of them with the file path as its argument", "cmds": ["find"], "reference": "find $1 -type f -not -regex '.*/\\..*' -exec $0 hashmove '{}' \\;"}
+{"q": "Find recursively all regular files changed within the last 5 minutes starting from directory b", "cmds": ["find"], "reference": "find b -type f -cmin -5"}
+{"q": "Get the total size of all files under dir1 directory", "cmds": ["find"], "reference": "find dir1 ! -type d |xargs wc -c |tail -1"}
+{"q": "Show what content owned by root has been modified within the last day", "cmds": ["find"], "reference": "find /etc/ -user root -mtime 1"}
+{"q": "Find all empty files in the current directory and delete them", "cmds": ["find"], "reference": "find . -maxdepth 1 -type f -empty -delete"}
+{"q": "Find all empty files under /tmp", "cmds": ["find"], "reference": "find /tmp -type f -empty"}

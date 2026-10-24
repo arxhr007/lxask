@@ -1,0 +1,79 @@
+{"q": "Without cut, list usernames from /etc/passwd.", "forbid": ["cut"], "reference": "awk -F: '{print $1}' /etc/passwd"}
+{"q": "Show columns 2 and 4 from sales.csv, comma-separated; don't use cut.", "forbid": ["cut"], "reference": "awk -F, 'BEGIN {OFS=\",\"} {print $2,$4}' sales.csv"}
+{"q": "cut isn't installed. Show the first eight characters of each line in codes.txt.", "forbid": ["cut"], "reference": "awk '{print substr($0,1,8)}' codes.txt"}
+{"q": "Get ports from host:port lines in endpoints.txt; I can't use cut here.", "forbid": ["cut"], "reference": "awk -F: '{print $2}' endpoints.txt"}
+{"q": "From records.txt, print characters 5 through 12 instead of cut.", "forbid": ["cut"], "reference": "awk '{print substr($0,5,8)}' records.txt"}
+{"q": "No cut: print the first tab-separated field from path/to/file.", "forbid": ["cut"], "reference": "awk -F '\\t' '{print $1}' path/to/file"}
+{"q": "Use awk rather than cut to remove each line's first character in path/to/file.", "forbid": ["cut"], "reference": "awk '{print substr($0,2)}' path/to/file"}
+{"q": "Print everything after the first colon in path/to/file; avoid cut.", "forbid": ["cut"], "reference": "sed 's/^[^:]*://' path/to/file"}
+{"q": "Show characters 1–3 and 8–10 from path/to/file, without cut.", "forbid": ["cut"], "reference": "awk '{print substr($0,1,3) substr($0,8,3)}' path/to/file"}
+{"q": "Don't use cut: extract second tab-separated fields from path/to/file, skipping lines without tabs.", "forbid": ["cut"], "reference": "awk -F '\\t' 'NF>1 {print $2}' path/to/file"}
+{"q": "Without hostname, what's this machine's current host name?", "forbid": ["hostname"], "reference": "uname -n"}
+{"q": "Show just the short host name; don't use hostname.", "forbid": ["hostname"], "reference": "uname -n | cut -d. -f1"}
+{"q": "hostname isn't installed. What's this machine's fully qualified domain name?", "forbid": ["hostname"], "reference": "getent hosts \"$(uname -n)\" | awk 'NR == 1 {print $2}'"}
+{"q": "Show this host's DNS domain instead of hostname.", "forbid": ["hostname"], "reference": "getent hosts \"$(uname -n)\" | awk 'NR == 1 {print $2}' | cut -s -d. -f2-"}
+{"q": "Use procfs rather than hostname to show the NIS domain.", "forbid": ["hostname"], "reference": "cat /proc/sys/kernel/domainname"}
+{"q": "Temporarily rename this machine build-07, without hostname.", "forbid": ["hostname"], "reference": "sudo sysctl -q -w kernel.hostname=build-07"}
+{"q": "I can't use hostname here; load the temporary name from /etc/cluster/node-name.", "forbid": ["hostname"], "reference": "sudo sh -c 'cat /etc/cluster/node-name > /proc/sys/kernel/hostname'"}
+{"q": "Avoid hostname: save this host's resolved IPv4 addresses, one per line, to /tmp/resolved-ips.", "forbid": ["hostname"], "reference": "getent ahostsv4 \"$(uname -n)\" | awk '!seen[$1]++ {print $1}' > /tmp/resolved-ips"}
+{"q": "Save non-loopback IPv4 addresses, one per line, to /tmp/host-ips. No hostname.", "forbid": ["hostname"], "reference": "ip -o -4 addr show | awk '$2 != \"lo\" {sub(/\\/.*/, \"\", $4); print $4}' > /tmp/host-ips"}
+{"q": "Write the current host name to /tmp/node-name; hostname is unavailable.", "forbid": ["hostname"], "reference": "uname -n > /tmp/node-name"}
+{"q": "Without kill, gracefully terminate all my firefox processes.", "forbid": ["kill"], "reference": "pkill -TERM -x firefox"}
+{"q": "Force-stop my processes named process_name; don't use kill.", "forbid": ["kill"], "reference": "pkill -KILL -x process_name"}
+{"q": "Kill isn't installed. Terminate all processes owned by alice.", "forbid": ["kill"], "reference": "sudo pkill -TERM -u alice"}
+{"q": "Can you pause my ffmpeg processes without kill?", "forbid": ["kill"], "reference": "pkill -STOP -x ffmpeg"}
+{"q": "Use pkill rather than kill to resume my processes named process_name.", "forbid": ["kill"], "reference": "pkill -CONT -x process_name"}
+{"q": "Reload nginx's configuration, but avoid kill.", "forbid": ["kill"], "reference": "sudo systemctl reload nginx"}
+{"q": "I can't use kill here. Tell nginx to reopen its log files.", "forbid": ["kill"], "reference": "sudo pkill -USR1 -F /run/nginx.pid"}
+{"q": "No kill: terminate every direct child of parent_pid.", "forbid": ["kill"], "reference": "pkill -TERM -P parent_pid"}
+{"q": "Send SIGQUIT to my processes named process_name instead of kill.", "forbid": ["kill"], "reference": "pkill -QUIT -x process_name"}
+{"q": "Stop the system service service_name; don't use kill.", "forbid": ["kill"], "reference": "sudo systemctl stop service_name"}
+{"q": "Without date, show the current local date and time.", "forbid": ["date"], "reference": "bash -c 'printf \"%(%F %T)T\\n\" -1'"}
+{"q": "What's the current Unix timestamp? Don't use date.", "forbid": ["date"], "reference": "perl -le 'print time'"}
+{"q": "Date isn't installed; show the current UTC timestamp in ISO 8601 format.", "forbid": ["date"], "reference": "TZ=UTC bash -c 'printf \"%(%FT%TZ)T\\n\" -1'"}
+{"q": "Show /var/log/syslog's last modification time without date.", "forbid": ["date"], "reference": "stat -c %y /var/log/syslog"}
+{"q": "I can't use date here. Convert epoch 1700000000 to readable UTC.", "forbid": ["date"], "reference": "perl -MPOSIX=strftime -le 'print strftime \"%Y-%m-%d %H:%M:%S UTC\", gmtime 1700000000'"}
+{"q": "Set the system clock to 2026-08-15 14:30:00; avoid date.", "forbid": ["date"], "reference": "sudo timedatectl set-time '2026-08-15 14:30:00'"}
+{"q": "Use Bash rather than date to show the current time in Asia/Tokyo.", "forbid": ["date"], "reference": "TZ=Asia/Tokyo bash -c 'printf \"%(%T)T\\n\" -1'"}
+{"q": "What's the current ISO week number, instead of date?", "forbid": ["date"], "reference": "bash -c 'printf \"%(%V)T\\n\" -1'"}
+{"q": "No date: what weekday is 2027-07-04?", "forbid": ["date"], "reference": "perl -MTime::Piece -le 'print Time::Piece->strptime(\"2027-07-04\", \"%Y-%m-%d\")->strftime(\"%A\")'"}
+{"q": "Without date, measure how many seconds command-to-run takes.", "forbid": ["date"], "reference": "bash -c 'SECONDS=0; command-to-run; printf \"%s\\n\" \"$SECONDS\"'"}
+{"q": "Without mv, rename draft.txt to final.txt.", "forbid": ["mv"], "reference": "cp -a draft.txt final.txt && rm draft.txt"}
+{"q": "Can you move report.pdf into archive/? Don't use mv.", "forbid": ["mv"], "reference": "cp -a report.pdf archive/ && rm report.pdf"}
+{"q": "mv isn't installed; rename the old-site directory to new-site.", "forbid": ["mv"], "reference": "cp -a old-site new-site && rm -r old-site"}
+{"q": "Move photos into /tmp/; I can't use mv here.", "forbid": ["mv"], "reference": "cp -a photos /tmp/ && rm -r photos"}
+{"q": "Move a.csv and b.csv into data/ instead of mv.", "forbid": ["mv"], "reference": "cp -a a.csv b.csv data/ && rm a.csv b.csv"}
+{"q": "No mv: move all .log files here into path/to/archive/.", "forbid": ["mv"], "reference": "cp -a -- *.log path/to/archive/ && rm -- *.log"}
+{"q": "Move path/to/source over the existing file path/to/destination, without mv.", "forbid": ["mv"], "reference": "cp -a path/to/source path/to/destination && rm path/to/source"}
+{"q": "Avoid mv: move path/to/inbox/draft to path/to/published/final.", "forbid": ["mv"], "reference": "cp -a path/to/inbox/draft path/to/published/final && rm path/to/inbox/draft"}
+{"q": "Use cp rather than mv to rename path/to/config to path/to/config.bak.", "forbid": ["mv"], "reference": "cp -a path/to/config path/to/config.bak && rm path/to/config"}
+{"q": "Without mv, empty path/to/source/ into path/to/destination/, including hidden files; keep the source directory.", "forbid": ["mv"], "reference": "cp -a path/to/source/. path/to/destination/ && find path/to/source -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +"}
+{"q": "Without xargs, delete all .tmp files under /srv/cache.", "forbid": ["xargs"], "reference": "find /srv/cache -type f -name '*.tmp' -delete"}
+{"q": "Make every directory under /srv/www mode 755; don't use xargs.", "forbid": ["xargs"], "reference": "find /srv/www -type d -exec chmod 755 {} +"}
+{"q": "Find files containing 'ERROR', without xargs, under /var/log/myapp.", "forbid": ["xargs"], "reference": "find /var/log/myapp -type f -exec grep -l 'ERROR' {} +"}
+{"q": "Can you gzip every .log file under /srv/logs instead of xargs?", "forbid": ["xargs"], "reference": "find /srv/logs -type f -name '*.log' -exec gzip {} +"}
+{"q": "I can't use xargs here; terminate the PIDs listed in /tmp/pids.", "forbid": ["xargs"], "reference": "while read -r pid; do kill \"$pid\"; done < /tmp/pids"}
+{"q": "No xargs: count lines in every .txt file under path/to/directory.", "forbid": ["xargs"], "reference": "find path/to/directory -type f -name '*.txt' -exec wc -l {} +"}
+{"q": "Calculate SHA-256 hashes for all files under path/to/directory; avoid xargs.", "forbid": ["xargs"], "reference": "find path/to/directory -type f -exec sha256sum {} +"}
+{"q": "Use a loop rather than xargs: copy paths from path/to/list into path/to/destination.", "forbid": ["xargs"], "reference": "while IFS= read -r file; do cp -- \"$file\" path/to/destination/; done < path/to/list"}
+{"q": "Archive files listed in path/to/list into path/to/archive.tar, without xargs.", "forbid": ["xargs"], "reference": "tar -cf path/to/archive.tar -T path/to/list"}
+{"q": "xargs isn't installed; remove all empty directories under path/to/directory.", "forbid": ["xargs"], "reference": "find path/to/directory -type d -empty -delete"}
+{"q": "Without sort, list /var/log entries biggest first.", "forbid": ["sort"], "reference": "ls -1S /var/log"}
+{"q": "Show ~/Downloads entries newest first; don't use sort.", "forbid": ["sort"], "reference": "ls -1t ~/Downloads"}
+{"q": "Sort isn't installed. Show alice's processes by CPU usage, highest first.", "forbid": ["sort"], "reference": "ps -u alice -o pid,comm,%cpu --sort=-pcpu"}
+{"q": "Order the ports in /tmp/ports.txt numerically; I can't use sort here.", "forbid": ["sort"], "reference": "python3 -c 'print(*sorted(open(\"/tmp/ports.txt\").read().splitlines(), key=int), sep=\"\\n\")'"}
+{"q": "Give me unique usernames from /tmp/names.txt alphabetically, no sort.", "forbid": ["sort"], "reference": "python3 -c 'print(*sorted(set(open(\"/tmp/names.txt\").read().splitlines())), sep=\"\\n\")'"}
+{"q": "Can you alphabetize path/to/file using Python rather than sort?", "forbid": ["sort"], "reference": "python3 -c 'print(*sorted(open(\"path/to/file\").read().splitlines()), sep=\"\\n\")'"}
+{"q": "Avoid sort: put numbers from path/to/file in descending order.", "forbid": ["sort"], "reference": "python3 -c 'print(*sorted(open(\"path/to/file\").read().splitlines(), key=float, reverse=True), sep=\"\\n\")'"}
+{"q": "List path/to/releases filenames in version order instead of sort.", "forbid": ["sort"], "reference": "ls -1v path/to/releases"}
+{"q": "Without sort, order path/to/scores by its second column numerically, lowest first.", "forbid": ["sort"], "reference": "python3 -c 'print(*sorted(open(\"path/to/scores\").read().splitlines(), key=lambda s: float(s.split()[1])), sep=\"\\n\")'"}
+{"q": "Put path/to/file lines longest first, but don't use sort.", "forbid": ["sort"], "reference": "python3 -c 'print(*sorted(open(\"path/to/file\").read().splitlines(), key=len, reverse=True), sep=\"\\n\")'"}
+{"q": "What's example.com's IPv4 address? Ping isn't installed.", "forbid": ["ping"], "reference": "getent ahostsv4 example.com"}
+{"q": "Without ping, check internet access through https://www.debian.org.", "forbid": ["ping"], "reference": "curl -IsS --max-time 5 https://www.debian.org"}
+{"q": "I can't use ping here; wait until https://status.example.com comes back.", "forbid": ["ping"], "reference": "until curl -Is --max-time 5 -o /dev/null https://status.example.com; do sleep 2; done; echo reachable"}
+{"q": "Log https://example.org availability to availability.log every five seconds; avoid ping.", "forbid": ["ping"], "reference": "while :; do date -Is; curl -Is --max-time 5 -o /dev/null https://example.org && echo reachable || echo unreachable; sleep 5; done >> availability.log"}
+{"q": "Is my local web server at http://127.0.0.1:8080 reachable? Don't use ping.", "forbid": ["ping"], "reference": "curl -IsS --max-time 5 http://127.0.0.1:8080"}
+{"q": "Use curl rather than ping to check https://HOST over IPv6.", "forbid": ["ping"], "reference": "curl -6 -IsS --max-time 5 https://HOST"}
+{"q": "Time the connection to https://HOST instead of ping.", "forbid": ["ping"], "reference": "curl -IsS -o /dev/null --max-time 5 -w 'Connection time: %{time_connect} seconds\\n' https://HOST"}
+{"q": "No ping: check each website listed in path/to/urls.", "forbid": ["ping"], "reference": "while IFS= read -r url; do printf '%s: ' \"$url\"; curl -Is --max-time 5 -o /dev/null \"$url\" && echo reachable || echo unreachable; done < path/to/urls"}
+{"q": "Tell me when https://HOST becomes unreachable, without ping.", "forbid": ["ping"], "reference": "while curl -Is --max-time 5 -o /dev/null https://HOST; do sleep 2; done; echo unreachable"}

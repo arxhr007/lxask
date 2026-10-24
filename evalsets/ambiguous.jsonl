@@ -1,0 +1,24 @@
+{"q": "add a proxy", "clarify": true}
+{"q": "configure a proxy", "clarify": true}
+{"q": "set up a proxy", "clarify": true}
+{"q": "how do I use my company proxy?", "clarify": true}
+{"q": "set proxy 10.0.0.1:3128", "clarify": true}
+{"q": "I'm behind a proxy at proxy.corp:8080, make things work", "clarify": true}
+{"q": "add proxy authentication with user bob", "clarify": true}
+{"q": "remove the proxy settings", "clarify": true}
+{"q": "set a proxy for git", "cmds": ["git"], "must": ["git\\s+config\\b.*\\bhttps?\\.proxy\\b"], "must_not": ["(?:^|[\\s|;&(])scp\\s"]}
+{"q": "make git use the proxy http://proxy.corp:8080 for all repositories", "cmds": ["git"], "must": ["git\\s+config\\b.*\\bhttps?\\.proxy\\b"], "must_not": ["(?:^|[\\s|;&(])scp\\s"]}
+{"q": "set a proxy for apt", "cmds": ["echo", "tee", "printf", "cat", "sh", "bash"], "must": ["Acquire::https?::Proxy"], "must_not": ["(?:^|[\\s|;&(])scp\\s"]}
+{"q": "make apt use the proxy http://10.0.0.1:3128", "cmds": ["echo", "tee", "printf", "cat", "sh", "bash"], "must": ["Acquire::https?::Proxy"], "must_not": ["(?:^|[\\s|;&(])scp\\s"]}
+{"q": "set an http proxy for this shell session", "cmds": ["export"], "must": ["export\\s+(?:https?_proxy|HTTPS?_PROXY)="], "must_not": ["(?:^|[\\s|;&(])scp\\s"]}
+{"q": "export http_proxy=http://proxy.corp:8080 for this terminal", "cmds": ["export"], "must": ["export\\s+(?:https?_proxy|HTTPS?_PROXY)="], "must_not": ["(?:^|[\\s|;&(])scp\\s"]}
+{"q": "set an http proxy system-wide for all users", "cmds": ["echo", "tee", "printf", "sed", "cat", "sh", "bash"], "must": ["/etc/environment|/etc/profile\\.d/"], "must_not": ["(?:^|[\\s|;&(])scp\\s"]}
+{"q": "set a proxy for pip", "cmds": ["pip", "pip3", "python3", "python"], "must": ["pip3?\\s+config\\s+set\\s+global\\.proxy|--proxy[=\\s]"], "must_not": ["(?:^|[\\s|;&(])scp\\s"]}
+{"q": "pip install requests through the proxy http://proxy.corp:8080", "cmds": ["pip", "pip3", "python3", "python"], "must": ["--proxy[=\\s]|https?_proxy="], "must_not": ["(?:^|[\\s|;&(])scp\\s"]}
+{"q": "set a proxy for npm", "cmds": ["npm"], "must": ["npm\\s+config\\s+set\\s+(?:https-)?proxy\\b"], "must_not": ["(?:^|[\\s|;&(])scp\\s"]}
+{"q": "make docker pull images through an http proxy", "cmds": ["mkdir", "tee", "echo", "printf", "systemctl", "cat", "sh", "bash"], "must": ["HTTPS?_PROXY|http-proxy\\.conf|\\\"(?:https?P|p)roxies\\\"|httpProxy"], "must_not": ["(?:^|[\\s|;&(])scp\\s"]}
+{"q": "connect over ssh through a jump host", "cmds": ["ssh"], "must": ["\\s-J\\s|ProxyJump"]}
+{"q": "ssh to db.internal through the bastion host bastion.corp", "cmds": ["ssh"], "must": ["\\s-J\\s|ProxyJump|ProxyCommand"]}
+{"q": "fetch https://example.com with curl through the proxy http://10.0.0.1:3128", "cmds": ["curl"], "must": ["\\s-x\\s|--proxy[=\\s]|https?_proxy="], "must_not": ["(?:^|[\\s|;&(])scp\\s"]}
+{"q": "download a file with wget through a proxy", "cmds": ["wget", "export"], "must": ["https?_proxy|use_proxy|-e\\s"], "must_not": ["(?:^|[\\s|;&(])scp\\s"]}
+{"q": "set up a squid proxy server", "cmds": ["apt", "apt-get", "dnf", "yum", "systemctl"], "must": ["squid"], "must_not": ["(?:^|[\\s|;&(])scp\\s"]}

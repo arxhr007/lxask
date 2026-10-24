@@ -1,0 +1,46 @@
+{"id": "count-lines", "q": "count the lines in data.txt", "setup": ["seq 1 137 > data.txt"], "expect": {"number": 137}}
+{"id": "head-3", "q": "print the first 3 lines of data.txt", "setup": ["seq 1 20 > data.txt"], "expect": {"lines": ["1", "2", "3"]}}
+{"id": "tail-2", "q": "print the last 2 lines of data.txt", "setup": ["seq 1 20 > data.txt"], "expect": {"lines": ["19", "20"]}}
+{"id": "lines-5-7", "q": "print lines 5 to 7 of data.txt", "setup": ["seq 1 20 > data.txt"], "expect": {"lines": ["5", "6", "7"]}}
+{"id": "find-log", "q": "find all files ending in .log under the logs directory", "setup": ["mkdir -p logs/a logs/b", "touch logs/x.log logs/a/y.log logs/b/z.txt"], "expect": {"set": ["logs/x.log", "logs/a/y.log"]}}
+{"id": "find-big", "q": "find files larger than 1 megabyte under the data directory", "setup": ["mkdir data", "head -c 2000000 /dev/zero > data/big.bin", "head -c 1000 /dev/zero > data/small.bin"], "expect": {"contains": ["data/big.bin"], "absent": ["data/small.bin"]}}
+{"id": "find-empty", "q": "find all empty files under the work directory", "setup": ["mkdir -p work/sub", "touch work/a.txt work/sub/b.txt", "echo x > work/c.txt"], "expect": {"set": ["work/a.txt", "work/sub/b.txt"]}}
+{"id": "count-matches", "q": "count the lines containing the word error in app.log", "setup": ["printf 'ok\\nerror one\\nfine\\nerror two\\nan error here\\n' > app.log"], "expect": {"number": 3}}
+{"id": "grep-nocase", "q": "show the lines containing error in app.log, ignoring upper and lower case", "setup": ["printf 'ok\\nERROR one\\nfine\\nError two\\n' > app.log"], "expect": {"set": ["ERROR one", "Error two"]}}
+{"id": "grep-invert", "q": "show the lines of hosts.txt that do not contain the word backup", "setup": ["printf 'web1\\nbackup1\\ndb1\\nbackup2\\n' > hosts.txt"], "expect": {"lines": ["web1", "db1"]}}
+{"id": "files-with-todo", "q": "print the names of the files in the docs directory that contain the word TODO", "setup": ["mkdir docs", "echo 'TODO fix' > docs/a.md", "echo 'done' > docs/b.md"], "expect": {"set": ["docs/a.md"]}}
+{"id": "sort-alpha", "q": "sort names.txt alphabetically", "setup": ["printf 'pear\\napple\\nfig\\n' > names.txt"], "expect": {"lines": ["apple", "fig", "pear"]}}
+{"id": "sort-numeric-desc", "q": "sort numbers.txt numerically in descending order", "setup": ["printf '9\\n100\\n25\\n3\\n' > numbers.txt"], "expect": {"lines": ["100", "25", "9", "3"]}}
+{"id": "unique-sorted", "q": "print the lines of dupes.txt sorted with duplicates removed", "setup": ["printf 'b\\na\\nb\\nc\\na\\n' > dupes.txt"], "expect": {"lines": ["a", "b", "c"]}}
+{"id": "count-distinct", "q": "count how many times each line appears in words.txt, most frequent first", "setup": ["printf 'apple\\npear\\napple\\nfig\\napple\\npear\\n' > words.txt"], "expect": {"lines": ["3 apple", "2 pear", "1 fig"]}}
+{"id": "csv-column", "q": "print the second column of data.csv, which is comma separated", "setup": ["printf 'a,1,x\\nb,2,y\\nc,3,z\\n' > data.csv"], "expect": {"lines": ["1", "2", "3"]}}
+{"id": "tsv-first-unique", "q": "print the distinct values in the first column of users.tsv, which is tab separated", "setup": ["printf 'ops\\tann\\ndev\\tbob\\nops\\tcyd\\n' > users.tsv"], "expect": {"set": ["ops", "dev"]}}
+{"id": "uppercase", "q": "print the contents of shout.txt in upper case", "setup": ["printf 'hello\\nworld\\n' > shout.txt"], "expect": {"lines": ["HELLO", "WORLD"]}}
+{"id": "word-count", "q": "print the number of words in essay.txt", "setup": ["printf 'one two three\\nfour five\\n' > essay.txt"], "expect": {"number": 5}}
+{"id": "count-files", "q": "count the number of files in the docs directory", "setup": ["mkdir docs", "touch docs/a docs/b docs/c"], "expect": {"number": 3}}
+{"id": "sed-in-place", "q": "replace every occurrence of foo with bar in config.txt, changing the file itself", "setup": ["printf 'foo=1\\nx=foo foo\\n' > config.txt"], "check": "test \"$(cat config.txt)\" = \"$(printf 'bar=1\\nx=bar bar')\""}
+{"id": "mkdir-parents", "q": "create the directory backup/2024/jan, including any missing parent directories", "setup": [], "check": "test -d backup/2024/jan"}
+{"id": "copy", "q": "copy report.txt to report.bak", "setup": ["echo quarterly > report.txt"], "check": "test -f report.txt && cmp -s report.txt report.bak"}
+{"id": "rename", "q": "rename old.txt to new.txt", "setup": ["echo x > old.txt"], "check": "test -f new.txt && ! test -e old.txt"}
+{"id": "delete-tmp", "q": "delete all files ending in .tmp in the current directory", "setup": ["touch a.tmp b.tmp keep.txt"], "check": "! ls *.tmp >/dev/null 2>&1 && test -f keep.txt"}
+{"id": "delete-tree", "q": "delete the directory build and everything in it", "setup": ["mkdir -p build/obj", "touch build/obj/a.o keep.txt"], "check": "! test -e build && test -f keep.txt"}
+{"id": "tar-create", "q": "create a gzip-compressed tar archive named site.tar.gz from the directory site", "setup": ["mkdir site", "echo hi > site/index.html"], "check": "tar tzf site.tar.gz | grep -q 'site/index.html' && test -f site/index.html"}
+{"id": "tar-extract", "q": "extract archive.tar.gz into the directory out", "setup": ["mkdir src out", "echo hello > src/hello.txt", "tar czf archive.tar.gz -C src hello.txt", "rm -r src"], "check": "test \"$(cat out/hello.txt)\" = hello"}
+{"id": "chmod-x", "q": "make script.sh executable", "setup": ["echo 'echo hi' > script.sh", "chmod 644 script.sh"], "check": "test -x script.sh"}
+{"id": "touch", "q": "create an empty file called marker", "setup": [], "check": "test -f marker && ! test -s marker"}
+{"id": "symlink", "q": "create a symbolic link named current that points to releases/v2", "setup": ["mkdir -p releases/v2"], "check": "test -L current && test \"$(readlink current)\" = releases/v2"}
+{"id": "append", "q": "append the line done to the end of notes.txt", "setup": ["printf 'first\\n' > notes.txt"], "check": "test \"$(cat notes.txt)\" = \"$(printf 'first\\ndone')\""}
+{"id": "concatenate", "q": "join a.txt and b.txt into a new file all.txt, with a.txt first", "setup": ["echo A > a.txt", "echo B > b.txt"], "check": "test \"$(cat all.txt)\" = \"$(printf 'A\\nB')\""}
+{"id": "no-wc-lines", "q": "count the lines in data.txt without wc", "setup": ["seq 1 42 > data.txt"], "expect": {"number": 42}}
+{"id": "no-head", "q": "print the first 4 lines of data.txt without head", "setup": ["seq 1 20 > data.txt"], "expect": {"lines": ["1", "2", "3", "4"]}}
+{"id": "no-tail", "q": "print the last 3 lines of data.txt without tail", "setup": ["seq 1 20 > data.txt"], "expect": {"lines": ["18", "19", "20"]}}
+{"id": "no-grep", "q": "show the lines containing error in app.log without grep", "setup": ["printf 'ok\\nerror one\\nfine\\nan error here\\n' > app.log"], "expect": {"lines": ["error one", "an error here"]}}
+{"id": "no-find", "q": "list the .log files under logs, subdirectories included, without find", "setup": ["mkdir -p logs/a logs/b", "touch logs/x.log logs/a/y.log logs/b/z.txt"], "expect": {"set": ["logs/x.log", "logs/a/y.log"]}}
+{"id": "no-rm", "q": "delete old.txt without rm", "setup": ["echo x > old.txt", "echo keep > keep.txt"], "check": "[ ! -e old.txt ] && [ -f keep.txt ]", "unchanged": ["keep.txt"]}
+{"id": "no-cp", "q": "make a copy of report.txt called report.bak without cp", "setup": ["printf 'q1 totals\\n' > report.txt"], "check": "cmp report.txt report.bak", "unchanged": ["report.txt"]}
+{"id": "no-wc-words", "q": "how many words are in essay.txt? don't use wc", "setup": ["printf 'one two three\\nfour five\\n' > essay.txt"], "expect": {"number": 5}}
+{"id": "question-only", "q": "how many .txt files are in docs?", "setup": ["mkdir docs", "touch docs/a.txt docs/b.txt docs/c.md"], "expect": {"number": 2}}
+{"id": "gzip-keep", "q": "compress big.log with gzip but keep the original file", "setup": ["head -c 5000 /dev/zero > big.log"], "check": "[ -f big.log ] && gzip -t big.log.gz", "unchanged": ["big.log"]}
+{"id": "delete-tmp-only", "q": "delete the .tmp files directly in scratch, not in its subdirectories, and don't touch anything else", "setup": ["mkdir -p scratch/sub", "touch scratch/a.tmp scratch/b.tmp scratch/keep.txt scratch/sub/c.tmp"], "check": "[ ! -e scratch/a.tmp ] && [ ! -e scratch/b.tmp ]", "unchanged": ["scratch/keep.txt", "scratch/sub", "scratch/sub/*"]}
+{"id": "cat-txt-only", "q": "print the contents of every .txt file in notes", "setup": ["mkdir -p notes/sub", "echo alpha > notes/a.txt", "echo beta > notes/b.txt", "echo skip > notes/c.md"], "expect": {"set": ["alpha", "beta"]}}
+{"id": "chmod-one", "q": "make run.sh executable for its owner, without changing any other file", "setup": ["touch run.sh data.txt", "chmod 644 run.sh data.txt"], "check": "[ \"$(stat -c %a run.sh)\" = 744 ]", "unchanged": ["data.txt"]}

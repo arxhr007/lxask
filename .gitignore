@@ -1,0 +1,13 @@
+data/
+models/
+runs/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+dist/
+# built from rust/ (maturin develop, cargo)
+src/lxask/_core*.so
+src/lxask/_core*.pyd
+rust/target/

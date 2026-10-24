@@ -1,0 +1,56 @@
+lxask
+=====
+
+lxask's own code (everything in this repository unless a file says otherwise) is under
+the MIT License; see LICENSE. The model, the encoder and the documentation index that
+a release carries are built from the works below, which keep their own licences.
+
+The model (lxask-round4-Q4_K_M.gguf) and its adapter (restrict-round4.gguf)
+--------------------------------------------------------------------------
+A fine-tune of Qwen2.5-Coder-1.5B-Instruct by the Qwen team, Alibaba Cloud, licensed
+under the Apache License 2.0:
+  https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct
+  https://www.apache.org/licenses/LICENSE-2.0
+The weights were changed by fine-tuning (LoRA supervised training and reinforcement
+learning) on the training data described below, and quantized to Q4_K_M; the adapter
+is a LoRA adapter of the same model.
+
+The encoder (embed.gguf)
+------------------------
+bge-small-en-v1.5 by BAAI, licensed under the MIT License, as converted to GGUF by
+CompendiumLabs:
+  https://huggingface.co/BAAI/bge-small-en-v1.5
+  https://huggingface.co/CompendiumLabs/bge-small-en-v1.5-gguf
+
+The documentation index (docs.sqlite) and the training data
+-----------------------------------------------------------
+- tldr-pages, (c) the tldr-pages contributors, licensed under the Creative Commons
+  Attribution 4.0 International License (CC BY 4.0):
+    https://github.com/tldr-pages/tldr
+    https://creativecommons.org/licenses/by/4.0/
+  The index holds the pages' descriptions and examples (placeholders such as
+  {{path/to/file}} rewritten), and training examples and evalsets/tldr_heldout.jsonl
+  are made from them.
+- Manual pages of an Ubuntu installation (sections 1 and 8), each under the licence
+  stated in the page itself. The index quotes their NAME lines, option headings and
+  option descriptions, to check commands and explain them.
+- NL2Bash, by Xi Victoria Lin et al., licensed under the GNU General Public License
+  v3.0: https://github.com/TellinaTool/nl2bash
+  Training pairs and evalsets/nl2bash_test.jsonl (see evalsets/nl2bash_test.NOTICE)
+  are taken from it. It is also cited as: Lin et al., "NL2Bash: A Corpus and
+  Semantic Parser for Natural Language Interface to the Linux Operating System",
+  LREC 2018.
+
+Part of the training data (requests, multi-part scenarios and execution tasks) was
+written with hosted language models; it is published in this repository
+(`seed/generated_*.jsonl` and the four held-out sets), and has been since
+2026-10-21. Rephrasings of
+tldr examples (seed/paraphrases.jsonl) were written with Qwen2.5-7B-Instruct
+(Apache License 2.0) run locally.
+
+Software lxask runs on
+---------------------
+llama.cpp (MIT License, https://github.com/ggml-org/llama.cpp) through the
+llama-cpp-2 crate, SQLite (public domain) through rusqlite, and the other Rust and
+Python dependencies listed in rust/Cargo.lock and pyproject.toml, each under its own
+licence.

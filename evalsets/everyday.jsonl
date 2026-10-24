@@ -1,0 +1,70 @@
+{"q": "find files bigger than 1GB", "cmds": ["find"]}
+{"q": "how do i extract a tar.gz file", "cmds": ["tar"]}
+{"q": "which process is using port 8080", "cmds": ["ss", "lsof", "netstat", "fuser"]}
+{"q": "show disk usage of each folder", "cmds": ["du"]}
+{"q": "search for text recursively in all files", "cmds": ["grep", "rg"]}
+{"q": "add a user to the sudo group", "cmds": ["usermod", "gpasswd", "adduser"]}
+{"q": "check status of a systemd service", "cmds": ["systemctl"]}
+{"q": "count lines in a file", "cmds": ["wc"]}
+{"q": "how much free disk space do i have", "cmds": ["df"]}
+{"q": "how much ram is free", "cmds": ["free"]}
+{"q": "list all running processes", "cmds": ["ps", "top", "htop"]}
+{"q": "kill a process by its name", "cmds": ["pkill", "killall"]}
+{"q": "make a script executable", "cmds": ["chmod"]}
+{"q": "change the owner of a directory and everything inside it", "cmds": ["chown"]}
+{"q": "copy a folder to a remote server over ssh", "cmds": ["scp", "rsync"]}
+{"q": "download a file from a url", "cmds": ["curl", "wget"]}
+{"q": "keep watching the end of a log file as it grows", "cmds": ["tail"]}
+{"q": "zip up a folder", "cmds": ["zip"]}
+{"q": "unzip a file into a specific directory", "cmds": ["unzip"]}
+{"q": "what is my ip address", "cmds": ["ip", "ifconfig", "hostname"]}
+{"q": "list open ports on this machine", "cmds": ["ss", "netstat", "lsof", "nmap"]}
+{"q": "replace every occurrence of foo with bar in a file", "cmds": ["sed"]}
+{"q": "print the second column of a csv file", "cmds": ["awk", "cut"]}
+{"q": "sort a file and remove duplicate lines", "cmds": ["sort", "uniq"]}
+{"q": "create a symbolic link", "cmds": ["ln"]}
+{"q": "show hidden files in a directory", "cmds": ["ls"]}
+{"q": "install a package on ubuntu", "cmds": ["apt", "apt-get"]}
+{"q": "what kernel version am i running", "cmds": ["uname"]}
+{"q": "how long has the system been up", "cmds": ["uptime"]}
+{"q": "schedule a script to run every day at 3am", "cmds": ["crontab"]}
+{"q": "view the logs of a systemd service", "cmds": ["journalctl"]}
+{"q": "restart nginx", "cmds": ["systemctl", "service"]}
+{"q": "mount a usb drive", "cmds": ["mount"]}
+{"q": "list all disks and partitions", "cmds": ["lsblk", "fdisk"]}
+{"q": "compare two files line by line", "cmds": ["diff"]}
+{"q": "create a new user account", "cmds": ["useradd", "adduser"]}
+{"q": "change my password", "cmds": ["passwd"]}
+{"q": "generate a new ssh key", "cmds": ["ssh-keygen"]}
+{"q": "print all environment variables", "cmds": ["env", "printenv"]}
+{"q": "find all .log files modified in the last 7 days", "cmds": ["find"]}
+{"q": "delete all empty directories under the current one", "cmds": ["find"]}
+{"q": "show cpu information", "cmds": ["lscpu", "cat"]}
+{"q": "run a command that keeps going after i log out", "cmds": ["nohup", "tmux", "screen", "disown"]}
+{"q": "total size of a directory", "cmds": ["du"]}
+{"q": "check if a host is reachable", "cmds": ["ping"]}
+{"q": "look up the dns records of a domain", "cmds": ["dig", "nslookup", "host"]}
+{"q": "show the first 10 lines of a file", "cmds": ["head"]}
+{"q": "rename all .txt files to .md", "cmds": ["rename", "mv", "for"]}
+{"q": "keep two directories in sync", "cmds": ["rsync"]}
+{"q": "list files sorted by size", "cmds": ["ls"]}
+{"q": "which user am i logged in as", "cmds": ["whoami", "id"]}
+{"q": "set the hostname of the machine", "cmds": ["hostnamectl", "hostname"]}
+{"q": "read a .gz file without extracting it", "cmds": ["zcat", "zless", "gunzip", "gzip"]}
+{"q": "list the files a process has open", "cmds": ["lsof"]}
+{"q": "calculate the sha256 checksum of a file", "cmds": ["sha256sum"]}
+{"q": "trace the network route to a host", "cmds": ["traceroute", "tracepath", "mtr"]}
+{"q": "make a service start automatically at boot", "cmds": ["systemctl"]}
+{"q": "show git history with one commit per line", "cmds": ["git"]}
+{"q": "make a file readable only by its owner", "cmds": ["chmod"]}
+{"q": "list installed packages", "cmds": ["dpkg", "apt"]}
+{"q": "rerun a command every 2 seconds and show the output", "cmds": ["watch"]}
+{"q": "find a file by name anywhere on the system", "cmds": ["find", "locate", "fd"]}
+{"q": "where is an executable located", "cmds": ["which", "whereis", "command", "type"]}
+{"q": "convert windows line endings to unix", "cmds": ["dos2unix", "sed", "tr"]}
+{"q": "split a large file into 100MB pieces", "cmds": ["split"]}
+{"q": "who logged in recently", "cmds": ["last", "lastlog"]}
+{"q": "empty a file without deleting it", "cmds": ["truncate", ">", ":"]}
+{"q": "show the 10 biggest files in a folder", "cmds": ["du", "ls", "find"]}
+{"q": "untar an archive into another directory", "cmds": ["tar"]}
+{"q": "see what is eating my cpu", "cmds": ["top", "htop", "ps"]}

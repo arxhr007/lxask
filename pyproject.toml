@@ -1,0 +1,50 @@
+[project]
+name = "lxask"
+version = "1.0.0"
+description = "Offline Linux command assistant: a small local LLM plus retrieval over tldr and man pages"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "Aaron Thomas (arxhr007)" }]
+requires-python = ">=3.10"
+dependencies = ["llama-cpp-python>=0.3.2", "numpy>=1.26"]
+
+[project.urls]
+Repository = "https://github.com/arxhr007/lxask"
+
+[build-system]
+requires = ["maturin>=1.7,<2"]
+build-backend = "maturin"
+
+# The answering logic is the Rust core (rust/crates/lxask-core), built into lxask._core;
+# the `lxask` binary (rust/crates/lxask) uses the same crate.
+[tool.maturin]
+python-source = "src"
+module-name = "lxask._core"
+manifest-path = "rust/crates/lxask-py/Cargo.toml"
+features = ["pyo3/extension-module"]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+# Only needed to fine-tune and export the model, never at runtime.
+train = [
+    "torch>=2.7",
+    "transformers>=5.0",
+    "peft>=0.13",
+    "accelerate>=1.0",
+    # for llama.cpp's convert_hf_to_gguf.py
+    "sentencepiece",
+    "protobuf",
+]
+
+# RTX 50-series cards need CUDA 12.8+ builds of PyTorch.
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
