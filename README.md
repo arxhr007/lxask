@@ -176,9 +176,4 @@ machine, each under its own licence.
 
 Details for each part: [NOTICE](NOTICE).
 
-## History of this repository
 
-lxask was started on 2026-10-12. This repository is a fresh-history copy of the project as it stood on
-2026-10-22 (version 1.0.0 plus the benchmark correction), made on 2026-10-25 for Devin Hacks Kochi, so its
-git log is short. The earlier development history is kept in a separate private repository. The slides for
-the hackathon are in [hackathon/](hackathon/).
