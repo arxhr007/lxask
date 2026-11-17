@@ -8,7 +8,7 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
-SOURCE = "precision-v1"
+SOURCE = "precision-v2"
 SPLITS = ("train", "train", "dev", "test")
 
 
@@ -335,7 +335,161 @@ def filters(family: Family, rng: random.Random) -> list[dict]:
                         directory=directory, scope=scope, minimum=minimum) for operation in prompts]
 
 
-BUILDERS = (joins, counts, positions, matching, fields, transform, permissions, filters)
+def tables(family: Family, rng: random.Random) -> list[dict]:
+    delimiter, name, ext = ((",", "comma", "csv"), ("\t", "tab", "tsv"), (" ", "space", "txt"))[family.variant % 3]
+    path = family.path("orders", "." + ext)
+    columns = rng.choice([
+        ["state", "amount", "region", "id", "fee"],
+        ["fee", "id", "state", "amount", "region"],
+        ["amount", "region", "id", "fee", "state"],
+        ["id", "fee", "region", "state", "amount"],
+        ["region", "amount", "fee", "id", "state"],
+    ])
+    pos = {column: columns.index(column) + 1 for column in columns}
+    file = shlex.quote(path)
+    flag = r"\t" if delimiter == "\t" else delimiter
+    field = f"-F '{flag}'"
+    condition = f'NR>1 && ${pos["state"]} == "open"'
+    schema = delimiter.join(columns)
+    commands = {
+        "filter": f"awk {field} '{condition} {{print ${pos['id']}, ${pos['region']}}}' {file}",
+        "sum": f"awk {field} '{condition} {{n += ${pos['fee']}}} END {{print n+0}}' {file}",
+        "sum-amount": f"awk {field} '{condition} {{n += ${pos['amount']}}} END {{print n+0}}' {file}",
+    }
+    prompts = {
+        "filter": (
+            "`{file}` is {name}-separated data with header `{schema}`. For rows whose state is open, print ID then region separated by a space.",
+            "Read `{file}` ({name}-separated, header row `{schema}`) and output the ID and region of open rows, space-separated.",
+            "From {name}-separated `{file}` with header `{schema}`, select open rows and show each one's ID followed by its region.",
+            "In `{file}`, a {name}-separated file with header `{schema}`, list each open order's ID and region on one line.",
+        ),
+        "sum": (
+            "`{file}` is {name}-separated data with header `{schema}`. Print the total fee across rows whose state is open.",
+            "Sum the fee column of `{file}` ({name}-separated, header `{schema}`) over open rows only; output just the number.",
+            "For {name}-separated `{file}` with header `{schema}`, add up fees for state open and print the total.",
+            "What do the fees of open orders in `{file}` add to? It is {name}-separated with header `{schema}`. Print only that sum.",
+        ),
+        "sum-amount": (
+            "`{file}` is {name}-separated data with header `{schema}`. Print the sum of amount for open rows (not the fee column).",
+            "Total the amount column of `{file}` ({name}-separated, header `{schema}`) for open rows; output just the number.",
+            "For {name}-separated `{file}` with header `{schema}`, add the amounts where state is open and print the total.",
+            "Give the combined amount of open orders in `{file}`, a {name}-separated file with header `{schema}`. Print only that sum.",
+        ),
+    }
+    fixtures = {operation: [] for operation in commands}
+    for length in (3, 6, 8):
+        rows = [{"id": f"O{300+i}", "state": "open" if i % 2 == 0 else "closed", "region": f"r{i%3}",
+                 "amount": str(rng.randint(10, 90)), "fee": str(rng.randint(1, 9))} for i in range(length)]
+        content = schema + "\n" + "".join(delimiter.join(row[c] for c in columns) + "\n" for row in rows)
+        opened = [row for row in rows if row["state"] == "open"]
+        setup = [write_file(path, content)]
+        fixtures["filter"].append({"setup": setup, "expect": {"lines": [f"{r['id']} {r['region']}" for r in opened]}})
+        fixtures["sum"].append({"setup": setup, "expect": {"number": sum(int(r["fee"]) for r in opened)}})
+        fixtures["sum-amount"].append({"setup": setup, "expect": {"number": sum(int(r["amount"]) for r in opened)}})
+    wrong_delim = "," if delimiter != "," else "\t"
+    wrong_flag = "-F ','" if wrong_delim == "," else r"-F '\t'"
+    negatives = {
+        "filter": [f"awk {field} '{condition} {{print $1, $2}}' {file}",
+                   f"awk {wrong_flag} '{condition} {{print ${pos['id']}, ${pos['region']}}}' {file}"],
+        "sum": [f"awk {field} '{condition} {{n += ${pos['amount']}}} END {{print n+0}}' {file}",
+                f"awk {field} 'NR>1 {{n += ${pos['fee']}}} END {{print n+0}}' {file}"],
+        "sum-amount": [f"awk {field} '{condition} {{n += ${pos['fee']}}} END {{print n+0}}' {file}",
+                       f"awk {field} 'NR>1 {{n += ${pos['amount']}}} END {{print n+0}}' {file}"],
+    }
+    return [family.task(operation, prompts[operation], command, fixtures[operation], negatives[operation],
+                        file=path, name=name, schema=schema) for operation, command in commands.items()]
+
+
+def edits(family: Family, rng: random.Random) -> list[dict]:
+    path, keep = family.path("draft"), family.path("notes")
+    file, keep_q = shlex.quote(path), shlex.quote(keep)
+    line = f"added line {rng.randrange(1000)}"
+    commands = {
+        "inplace-blank": f"sed -i '/^$/d' {file}",
+        "append": f"printf '%s\\n' {shlex.quote(line)} >> {file}",
+        "inplace-lower": f"sed -i 's/.*/\\L&/' {file}",
+    }
+    prompts = {
+        "inplace-blank": (
+            "Delete all empty lines inside `{file}`, editing it in place; leave `{keep}` untouched.",
+            "Remove blank lines from `{file}` and save back to the same file. Do not change `{keep}`.",
+            "Strip empty lines out of `{file}` in place, keeping `{keep}` as it is.",
+            "Edit `{file}` itself to drop its blank lines; `{keep}` must stay unchanged.",
+        ),
+        "append": (
+            "Append the line `{line}` to the end of `{file}` without altering its existing lines or `{keep}`.",
+            "Add `{line}` as a new last line of `{file}`, keeping current content and `{keep}` unchanged.",
+            "Put `{line}` at the end of `{file}` while preserving everything already in it and in `{keep}`.",
+            "Extend `{file}` with a final line `{line}`; existing lines and `{keep}` stay as they are.",
+        ),
+        "inplace-lower": (
+            "Change all ASCII uppercase letters in `{file}` to lowercase, in place; `{keep}` stays untouched.",
+            "Lowercase the text of `{file}` and write it back to the same file, leaving `{keep}` alone.",
+            "Convert `{file}` to all-lowercase in place without touching `{keep}`.",
+            "Modify `{file}` in place so its ASCII text is lowercase; preserve `{keep}` exactly.",
+        ),
+    }
+    fixtures = {operation: [] for operation in commands}
+    for length, blanks in ((3, 1), (5, 2), (7, 3)):
+        lines = [f"MiXeD {rng.randrange(1000)}" for _ in range(length)]
+        with_blanks = lines[:]
+        for i in range(blanks):
+            with_blanks.insert(2 * i + 1, "")
+        setup = [write_file(path, "\n".join(with_blanks) + "\n"), write_file(keep, f"keep {rng.randrange(1000)}\n")]
+        fixtures["inplace-blank"].append({"setup": setup, "check": file_equals(path, "\n".join(lines) + "\n"),
+                                          "unchanged": [keep]})
+        fixtures["append"].append({"setup": setup, "check": file_equals(path, "\n".join(with_blanks) + "\n" + line + "\n"),
+                                   "unchanged": [keep]})
+        fixtures["inplace-lower"].append({
+            "setup": setup, "check": file_equals(path, "\n".join(with_blanks).lower() + "\n"), "unchanged": [keep]})
+    negatives = {
+        "inplace-blank": [f"sed '/^$/d' {file}", f"sed -i 's/^$/./' {file}"],
+        "append": [f"printf '%s\\n' {shlex.quote(line)} > {file}", f"printf '%s\\n' {shlex.quote(line)} >> {keep_q}"],
+        "inplace-lower": [f"tr '[:upper:]' '[:lower:]' < {file}", f"sed -i 's/.*/\\U&/' {file}"],
+    }
+    return [family.task(operation, prompts[operation], command, fixtures[operation], negatives[operation],
+                        file=path, keep=keep, line=line) for operation, command in commands.items()]
+
+
+def moves(family: Family, rng: random.Random) -> list[dict]:
+    path, twin, directory = family.path("report"), family.path("report_old"), family.path("archive", "")
+    file, twin_q = shlex.quote(path), shlex.quote(twin)
+    commands = {"move": f"mv {file} {shlex.quote(directory + '/')}",
+                "copy": f"cp {file} {shlex.quote(directory + '/')}"}
+    prompts = {
+        "move": (
+            "Move `{file}` into the `{directory}/` directory; `{twin}` must not move or change.",
+            "Relocate `{file}` into `{directory}/` and leave `{twin}` exactly where and how it is.",
+            "Put `{file}` inside `{directory}/` (moving it, not copying), keeping `{twin}` untouched.",
+            "Transfer `{file}` into `{directory}/` while `{twin}` stays in place unmodified.",
+        ),
+        "copy": (
+            "Copy `{file}` into `{directory}/` so the original stays here too; `{twin}` must not change.",
+            "Duplicate `{file}` into `{directory}/`, preserving the original file and `{twin}`.",
+            "Make a copy of `{file}` inside `{directory}/`; keep `{file}` itself and `{twin}` unchanged.",
+            "Replicate `{file}` into the `{directory}/` folder without removing it or altering `{twin}`.",
+        ),
+    }
+    fixtures = {operation: [] for operation in commands}
+    for count in (1, 3, 5):
+        content = f"report {rng.randrange(1000)}\n" * count
+        keep_content = f"old {rng.randrange(1000)}\n"
+        setup = [f"mkdir -p {shlex.quote(directory)}", write_file(path, content), write_file(twin, keep_content)]
+        moved = f"test -f {shlex.quote(directory + '/' + path)}"
+        fixtures["move"].append({
+            "setup": setup, "check": f"{moved} && test ! -e {file} && " +
+            file_equals(directory + "/" + path, content), "unchanged": [twin]})
+        fixtures["copy"].append({
+            "setup": setup, "check": f"{moved} && " + file_equals(directory + "/" + path, content) +
+            " && " + file_equals(path, content), "unchanged": [twin]})
+    negatives = {"move": [f"mv {twin_q} {shlex.quote(directory + '/')}", f"cp {file} {shlex.quote(directory + '/')} && touch {file}"],
+                 "copy": [f"mv {file} {shlex.quote(directory + '/')}", f"cp {twin_q} {shlex.quote(directory + '/')}"]}
+    return [family.task(operation, prompts[operation], command, fixtures[operation], negatives[operation],
+                        file=path, twin=twin, directory=directory) for operation, command in commands.items()]
+
+
+BUILDERS = (joins, counts, positions, matching, fields, transform, permissions, filters,
+            tables, edits, moves)
 
 
 def build_tasks(variants: int = 8, seed: int = 0) -> list[dict]:

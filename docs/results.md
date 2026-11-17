@@ -4,6 +4,31 @@ lxask was called linu from 0.3 to 0.8, and these notes use the names of their ti
 
 Every version and training round, newest first, with what was tried and not shipped.
 
+### Precision rounds 2 and 3: more families, no upgrade (measured, not shipped)
+
+Two follow-up LoRAs trained like the pilot. Round 2 added task families aimed at
+the pilot's remaining misses — delimited tables (CSV/TSV/space-separated, column
+indices and decoy columns), in-place edits and appends with keep-files, and
+move-vs-copy with a same-named sibling (`build_precision_tasks.py`, 896 proved
+tasks). On its dev set it reached 70.5% against the baseline's 39.3%, but on the
+round-1 dev tasks it fell to 75.6% (the round-1 adapter scores 80.6%): it traded
+join/transform/counts accuracy for permissions and edits. Round 3 mixed the
+round-1 training tasks with only the new families; on one shared 224-task dev
+set the three adapters score:
+
+| | baseline | round-1 adapter | round-3 adapter |
+|---|---|---|---|
+| shared dev (224 tasks) | 38.8% | **74.1%** | 73.2% |
+
+The two adapters are complementary — round 3 is perfect on permissions and
+in-place edits where round 1 is weak, and round 1 keeps joins, transforms and
+counts where round 3 slips — but neither dominates, and both fail the tables
+family almost entirely (1-2 of 24): tracking which column index a name maps to
+across three delimiters is beyond what 48 examples teach a model this size. The
+round-1 adapter remains the candidate: it wins or ties on the shared dev set and
+already has a frozen-test score. A merged or routed pair could in principle get
+both halves; that is untested.
+
 ### Precision pilot: contrastive LoRA (measured, not shipped)
 
 Aimed at round 4's dominant failure mode: commands that run fine but do the wrong
