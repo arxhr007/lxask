@@ -120,14 +120,14 @@ def part_handled(part: dict, command: str, programs: set[str]) -> bool:
 
 
 def score(case: dict, steps: list[Step], catalog: Catalog, asked: bool = False) -> dict:
-    commands = [step.command for step in steps if step.command]
+    commands = [step.command for step in steps if step.command.strip()]
     per_command = [set(programs_in(command, catalog)) for command in commands]
     used = set().union(*per_command) if per_command else set()
     result: dict = {
         "asked": asked,
-        "answered": len(commands) == len(steps) and bool(commands),
-        "valid": mean(not step.issues for step in steps if step.command) if commands else 0.0,
-        "clean": mean(not (step.issues or step.misses) for step in steps if step.command) if commands else 0.0,
+        "answered": not asked and len(commands) == len(steps) and bool(commands),
+        "valid": mean(not step.issues for step in steps if step.command.strip()) if commands else 0.0,
+        "clean": mean(not (step.issues or step.misses) for step in steps if step.command.strip()) if commands else 0.0,
         "retried": mean(step.tries > 1 for step in steps) if steps else 0.0,
     }
     accepted = case.get("cmds") or case.get("must_cmds")
@@ -138,7 +138,7 @@ def score(case: dict, steps: list[Step], catalog: Catalog, asked: bool = False) 
         result["flags"] = flag_f1(joined, case["reference"])
         result["exact"] = len(commands) == 1 and commands[0].split() == case["reference"].split()
     if len(steps) > 1:
-        result["complete"] = not unhandled(case["q"], steps)
+        result["complete"] = result["answered"] and not unhandled(case["q"], steps)
     if "steps" in case:  # multistep: a spec per part of the request
         handled = [any(part_handled(part, c, p) for c, p in zip(commands, per_command)) for part in case["steps"]]
         result["coverage"] = mean(handled)
@@ -152,12 +152,14 @@ def score(case: dict, steps: list[Step], catalog: Catalog, asked: bool = False) 
     if "must" in case:  # ambiguous, with a context named: the form a right command has
         result["form"] = any(re.search(pattern, " ; ".join(commands)) for pattern in case["must"])
     if "forbid" in case:  # programs ruled out: judged by what runs, not by matching text (`ip route`)
-        result["violations"] = any(p.lower() in case["forbid"] for c in commands for p in programs_run(c))
+        result["violations"] = result.get("violations", False) or any(
+            p.lower() in case["forbid"] for c in commands for p in programs_run(c))
+    passed = (result["answered"] and result.get("complete", True)
+              and result.get("program", True) and not result.get("violations", False))
     if case["set"] in ("regressions", "forbidden", "forbidden_heldout"):
-        result["pass"] = result.get("program", True) and not result.get("violations", False)
+        result["pass"] = passed
     if case["set"] == "ambiguous":
-        result["pass"] = asked if case.get("clarify") else (
-            not asked and result.get("program", True) and result.get("form", True) and not result.get("violations", False))
+        result["pass"] = asked and not commands if case.get("clarify") else passed and result.get("form", True)
     return result
 
 
@@ -206,6 +208,8 @@ def main() -> None:
     parser.add_argument("--index", type=Path, default=config.index_path())
     parser.add_argument("--no-rag", action="store_true", help="answer without retrieved notes")
     parser.add_argument("--adapter", type=Path, help="the restriction adapter, applied to the requests lxask.route sends it")
+    parser.add_argument("--adapter-always", action="store_true",
+                        help="apply --adapter to every question instead of the requests lxask.route sends it (experiments)")
     parser.add_argument("--only", nargs="+", choices=SETS, help="run just these sets")
     parser.add_argument("--limit", type=int, help="only the first N cases of each set (smoke test)")
     parser.add_argument("--name", help="run name (default: model file name plus -rag or -norag)")
@@ -258,7 +262,7 @@ def main() -> None:
                 steps, asked = answered_by_binary[i % RUST_BATCH]
             else:
                 asked = clarification(case["q"]) is not None  # the CLI asks back instead of answering
-                llm.specialize(specialist(case["q"], catalog))
+                llm.specialize(True if args.adapter_always else specialist(case["q"], catalog))
                 steps = [] if asked else answer(case["q"], llm.ask, search, catalog,
                                                 resample=None if args.no_retry else llm.sample)
             record = {

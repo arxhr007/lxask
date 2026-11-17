@@ -37,12 +37,15 @@ import stat
 import subprocess
 import sys
 import tempfile
+from decimal import Decimal
 from pathlib import Path
 
+from execution_tasks import task_variants
 from lxask.constraints import forbidden, programs_run
 
 ROOT = Path(__file__).resolve().parents[1]
 TIMEOUT = 10
+NUMBER = re.compile(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?")
 
 
 def sandbox_problem(environ=os.environ, euid: int | None = None) -> str | None:
@@ -73,8 +76,12 @@ def output_matches(expect: dict, stdout: str) -> bool:
         return False
     if "set" in expect and sorted(lines) != sorted(expect["set"]):
         return False
-    if "number" in expect and str(expect["number"]) not in re.findall(r"\d+", stdout):
-        return False
+    if "number" in expect:
+        tokens = stdout.split()
+        if (len(lines) != 1 or not tokens or not NUMBER.fullmatch(tokens[0])
+                or any(NUMBER.fullmatch(token) for token in tokens[1:])
+                or Decimal(tokens[0]) != Decimal(str(expect["number"]))):
+            return False
     if any(wanted not in lines for wanted in expect.get("contains", [])):
         return False
     return not any(unwanted in lines for unwanted in expect.get("absent", []))
@@ -167,7 +174,7 @@ def violations(task: dict, command: str, returncode: int, changed: list[str], ho
     return found
 
 
-def attempt(task: dict, command: str) -> dict:
+def attempt_one(task: dict, command: str) -> dict:
     """Build the fixture, run `command` in it as nobody, and judge the outcome."""
     fixture = Path(tempfile.mkdtemp(prefix="lxask-exec-"))
     home = Path(tempfile.mkdtemp(prefix="lxask-home-"))
@@ -177,7 +184,10 @@ def attempt(task: dict, command: str) -> dict:
             os.chown(directory, nobody.pw_uid, nobody.pw_gid)
         try:
             for line in task.get("setup", []):  # written by us, still run unprivileged
-                run(line, fixture, "nobody")
+                setup = run(line, fixture, "nobody")
+                if setup.returncode != 0:
+                    return {"ran": False, "success": False, "loose_success": False,
+                            "error": "setup failed", "stderr": setup.stderr[:300]}
         except subprocess.TimeoutExpired:
             return {"ran": False, "success": False, "loose_success": False, "error": "setup timed out"}
         before = snapshot(fixture)
@@ -200,6 +210,23 @@ def attempt(task: dict, command: str) -> dict:
     finally:
         shutil.rmtree(fixture, ignore_errors=True)
         shutil.rmtree(home, ignore_errors=True)
+
+
+def attempt(task: dict, command: str) -> dict:
+    variants = task_variants(task)
+    results = [attempt_one(variant, command) for variant in variants]
+    if "fixtures" not in task:
+        return results[0]
+    failed = next((i for i, result in enumerate(results) if not result["success"]), 0)
+    return {
+        **results[failed],
+        "success": all(result["success"] for result in results),
+        "loose_success": all(result.get("loose_success", False) for result in results),
+        "ran": all(result["ran"] for result in results),
+        "fixture": failed + 1,
+        "fixtures_passed": sum(result["success"] for result in results),
+        "fixtures_total": len(results),
+    }
 
 
 def binary_commands(tasks: list[dict], binary: str, model: Path, index: Path, args) -> list[str]:
@@ -228,11 +255,47 @@ def main() -> None:
     parser.add_argument("--tasks", type=Path, default=ROOT / "evalsets" / "exec_tasks.jsonl",
                         help="task file (default: evalsets/exec_tasks.jsonl; also evalsets/exec_heldout.jsonl)")
     parser.add_argument("--binary", help="answer with this lxask program (`lxask batch`) instead of the Python pipeline")
+    parser.add_argument("--adapter-always", action="store_true",
+                        help="apply --adapter to every task instead of the requests lxask.route sends it (experiments)")
+    parser.add_argument("--gen-out", type=Path,
+                        help="only generate commands, writing {id, q, command} per line; executes nothing and needs no sandbox")
+    parser.add_argument("--commands", type=Path,
+                        help="score commands saved by --gen-out ({id, command} lines) instead of running a model")
     args = parser.parse_args()
 
-    if problem := sandbox_problem():
+    if args.gen_out and args.commands:
+        parser.error("--gen-out and --commands are alternatives")
+    if args.adapter_always and not args.adapter:
+        parser.error("--adapter-always needs --adapter")
+
+    tasks = [json.loads(line) for line in args.tasks.read_text(encoding="utf-8").splitlines() if line.strip()]
+    tasks = tasks[: args.limit] if args.limit else tasks
+    if args.commands:
+        saved = {row["id"]: row.get("command", "") for row in
+                 map(json.loads, args.commands.read_text(encoding="utf-8").splitlines()) if row}
+        missing = [task["id"] for task in tasks if task["id"] not in saved]
+        if missing:
+            parser.error(f"{args.commands} has no command for {len(missing)} tasks: {missing[:3]}")
+    if not args.gen_out and (problem := sandbox_problem()):
         sys.exit(f"exec_eval: {problem}")
 
+    if args.gen_out:
+        generate(args, tasks)
+        return
+    if args.commands:
+        commands = [saved[task["id"]] for task in tasks]
+        score_commands(tasks, commands, args.name or args.commands.stem)
+        return
+
+    from lxask import config
+
+    model = args.model or config.model_path()
+    name = args.name or f"{model.stem}-{'norag' if args.no_rag else 'rag'}-exec"
+    score_commands(tasks, task_commands(args, tasks), name)
+
+
+def task_commands(args, tasks: list[dict]) -> list[str]:
+    """The command the answering pipeline emits for each task, in order."""
     from lxask import config
     from lxask.answer import answer, clarification
     from lxask.llm import LLM, Embedder
@@ -241,29 +304,37 @@ def main() -> None:
     from lxask.validate import load_catalog
 
     model = args.model or config.model_path()
-    name = args.name or f"{model.stem}-{'norag' if args.no_rag else 'rag'}-exec"
-    tasks = [json.loads(line) for line in args.tasks.read_text(encoding="utf-8").splitlines() if line.strip()]
-    tasks = tasks[: args.limit] if args.limit else tasks
-
     if args.binary:
-        commands = binary_commands(tasks, args.binary, model, config.index_path(), args)
-    else:
-        catalog = load_catalog(config.index_path())
-        search = lambda task: []  # noqa: E731
-        if not args.no_rag:
-            embed = Embedder(config.embed_model_path()) if config.embed_model_path().exists() else None
-            search = Retriever(config.index_path(), embed=embed).search
-        llm = LLM(model, adapter=args.adapter)
+        return binary_commands(tasks, args.binary, model, config.index_path(), args)
+    catalog = load_catalog(config.index_path())
+    search = lambda task: []  # noqa: E731
+    if not args.no_rag:
+        embed = Embedder(config.embed_model_path()) if config.embed_model_path().exists() else None
+        search = Retriever(config.index_path(), embed=embed).search
+    llm = LLM(model, adapter=args.adapter)
+    commands = []
+    for task in tasks:  # a question the CLI would ask back gets no command, as there
+        llm.specialize(True if args.adapter_always else specialist(task["q"], catalog))
+        steps = [] if clarification(task["q"]) else answer(task["q"], llm.ask, search, catalog,
+                                                            resample=None if args.no_retry else llm.sample)
+        command = " && ".join(step.command for step in steps if step.command)
+        commands.append(command)
+        print(f"  $ {task['id']:18} {command[:90]}", flush=True)
+    return commands
 
+
+def generate(args, tasks: list[dict]) -> None:
+    commands = task_commands(args, tasks)
+    args.gen_out.parent.mkdir(parents=True, exist_ok=True)
+    with args.gen_out.open("x", encoding="utf-8", newline="\n") as out:
+        for task, command in zip(tasks, commands):
+            out.write(json.dumps({"id": task["id"], "q": task["q"], "command": command}, ensure_ascii=False) + "\n")
+    print(f"{len(commands)} commands -> {args.gen_out}")
+
+
+def score_commands(tasks: list[dict], commands: list[str], name: str) -> None:
     records = []
-    for i, task in enumerate(tasks):
-        if args.binary:
-            command = commands[i]
-        else:  # a question the CLI would ask back gets no command, as there
-            llm.specialize(specialist(task["q"], catalog))
-            steps = [] if clarification(task["q"]) else answer(task["q"], llm.ask, search, catalog,
-                                                                resample=None if args.no_retry else llm.sample)
-            command = " && ".join(step.command for step in steps if step.command)
+    for task, command in zip(tasks, commands):
         outcome = attempt(task, command) if command else {"ran": False, "success": False, "loose_success": False,
                                                           "error": "no command"}
         records.append({"id": task["id"], "q": task["q"], "command": command, **outcome})

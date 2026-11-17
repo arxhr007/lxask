@@ -31,6 +31,10 @@ alone when the task only asks a question, and use nothing the task ruled out.
 How each set is made and scored: [development.md](development.md#measuring-it).
 Every version's numbers: [results.md](results.md).
 
+A precision-tuned LoRA measured after these numbers (not shipped) lifts strict
+execution success on a new 160-task set from 35.0% to 73.8%: see
+[results.md](results.md#precision-pilot-contrastive-lora-measured-not-shipped).
+
 ## The public benchmark: NL2SH-ALFA
 
 The sets above are lxask's own. For a number that can be checked against other

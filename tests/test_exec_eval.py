@@ -157,6 +157,86 @@ def test_output_matching():
     assert match({}, "anything")  # tasks judged by their `check` alone
 
 
+@pytest.mark.parametrize("expected, output, matches", [
+    (12, "12\n", True),
+    (12, "  12 report2.txt\n", True),
+    (-12, "-12\n", True),
+    (12, "12.0\n", True),
+    (0.5, "5e-1\n", True),
+    (12, "-12\n", False),
+    (12, "0 12\n", False),
+    (12, "12 99\n", False),
+    (12, "12\n99\n", False),
+    (12, "0 file12.txt\n", False),
+    (12, "12 items, 99 skipped\n", False),
+    (12, "not a result: 12\n", False),
+])
+def test_numeric_result_is_not_any_number_anywhere(expected, output, matches):
+    assert exec_eval.output_matches({"number": expected}, output) is matches
+
+
+def test_every_fixture_must_pass(monkeypatch):
+    seen = []
+
+    def attempt_one(task, command):
+        seen.append((task, command))
+        correct = task["expect"]["number"] == 2
+        return {"success": correct, "loose_success": correct, "ran": True, "stdout": "2"}
+
+    monkeypatch.setattr(exec_eval, "attempt_one", attempt_one)
+    task = {"q": "count", "forbid": ["wc"], "fixtures": [{"expect": {"number": 2}}, {"expect": {"number": 7}}]}
+    outcome = exec_eval.attempt(task, "echo 2")
+    assert outcome["success"] is False
+    assert outcome["fixtures_passed"] == 1 and outcome["fixtures_total"] == 2
+    assert outcome["fixture"] == 2
+    assert all(variant["forbid"] == ["wc"] for variant, _ in seen)
+
+
+def test_failed_fixture_setup_is_not_scored_as_a_command_failure(tmp_path, monkeypatch):
+    import subprocess
+
+    directories = iter([tmp_path / "fixture", tmp_path / "home"])
+    for directory in (tmp_path / "fixture", tmp_path / "home"):
+        directory.mkdir()
+    monkeypatch.setattr(exec_eval.tempfile, "mkdtemp", lambda **kwargs: str(next(directories)))
+    monkeypatch.setattr(exec_eval.os, "chown", lambda *args: None)
+    monkeypatch.setattr(exec_eval, "run", lambda *args: subprocess.CompletedProcess(args, 1, "", "bad setup"))
+    outcome = exec_eval.attempt({"q": "count", "setup": ["false"]}, "echo 2")
+    assert outcome["success"] is False and outcome["error"] == "setup failed"
+
+
+def test_commands_mode_rejects_missing_and_extra_prediction_files(tmp_path):
+    tasks = tmp_path / "tasks.jsonl"
+    tasks.write_text('{"id": "a", "q": "x"}\n{"id": "b", "q": "y"}\n')
+    predictions = tmp_path / "predictions.jsonl"
+    predictions.write_text('{"id": "a", "command": "ls"}\n')
+    import subprocess
+    script = Path(__file__).resolve().parents[1] / "scripts" / "exec_eval.py"
+    env = {**__import__("os").environ, "LXASK_ALLOW_EXEC": "1", "COLAB_RELEASE_TAG": "x"}
+    result = subprocess.run(
+        [sys.executable, str(script), "--tasks", str(tasks), "--commands", str(predictions)],
+        capture_output=True, text=True, env=env)
+    assert result.returncode != 0
+    assert "no command for 1 tasks" in result.stderr
+
+
+def test_gen_out_and_commands_are_alternatives(tmp_path):
+    import subprocess
+    script = Path(__file__).resolve().parents[1] / "scripts" / "exec_eval.py"
+    result = subprocess.run(
+        [sys.executable, str(script), "--gen-out", str(tmp_path / "a"), "--commands", str(tmp_path / "b")],
+        capture_output=True, text=True)
+    assert result.returncode != 0 and "alternatives" in result.stderr
+
+
+def test_adapter_always_requires_an_adapter(tmp_path):
+    import subprocess
+    script = Path(__file__).resolve().parents[1] / "scripts" / "exec_eval.py"
+    result = subprocess.run(
+        [sys.executable, str(script), "--adapter-always"], capture_output=True, text=True)
+    assert result.returncode != 0 and "needs --adapter" in result.stderr
+
+
 def test_refuses_to_execute_outside_a_throwaway_environment(monkeypatch):
     monkeypatch.setattr(exec_eval.Path, "exists", lambda self: False)  # no /.dockerenv
     assert "LXASK_ALLOW_EXEC" in exec_eval.sandbox_problem({}, euid=0)

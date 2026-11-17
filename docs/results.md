@@ -4,6 +4,41 @@ lxask was called linu from 0.3 to 0.8, and these notes use the names of their ti
 
 Every version and training round, newest first, with what was tried and not shipped.
 
+### Precision pilot: contrastive LoRA (measured, not shipped)
+
+Aimed at round 4's dominant failure mode: commands that run fine but do the wrong
+job (43 of its 50 exec_heldout failures exited 0). `scripts/build_precision_tasks.py`
+writes contrastive task families — `cat` vs `paste`, `wc -l` vs `wc -w`, substring
+vs whole-word vs inverted grep, show vs edit-in-place, list vs delete, exact output
+filenames, filenames with spaces, "leave this other file alone" — three fixtures
+each, every task checked so its reference passes all fixtures and its no-op and
+hard-negative commands all fail (`prove_exec_tasks.py`, in the container). 640
+proved tasks, family-separated into 320 train / 160 dev / 160 frozen test; a short
+LoRA on round 4's checkpoint trained on 960 rows (precision references plus replay
+of the old training data), exported as a 37 MB GGUF adapter. Strict execution
+success, commands run in the sandbox as `nobody` with no network:
+
+| set (160 tasks each) | round 4 + restrict adapter | + precision adapter |
+|---|---|---|
+| dev | 42.5% | **80.6%** |
+| frozen test | 35.0% | **73.8%** |
+
+Regression sets, the adapter applied to every question: everyday program 95.7% ->
+98.6%, regressions 7/7 -> 7/7, ambiguous 79.2% -> 79.2%. Restriction questions
+still need the routed restrict adapter (applied alone instead, the precision
+adapter scores 67.1% on forbidden_heldout vs its 75.9%), so a shipped form is
+routing or a merge, not adapter-always.
+
+What still fails on test: the CSV select/sum tasks where the column or filter is
+wrong anyway, "edit in place" answered with a transform that writes elsewhere or
+`sed -i` on the wrong file, and a few `chmod` runs that still touch the file the
+task says to keep. The scorer was hardened first so these numbers mean something:
+empty or partial answers no longer pass, restriction violations are kept instead
+of overwritten, numeric checks match the whole output (signed, decimal, scientific
+notation), and no-ops and each task's own hard negatives are proved to fail
+beforehand. `eval.py` and `exec_eval.py` gained `--adapter-always`, `--gen-out`
+and `--commands` flags for adapter-vs-baseline comparisons like this one.
+
 ### The public benchmark: NL2SH-ALFA (300 tasks), the shipped model
 
 The model shipped since 0.8 (round 4 with the restriction adapter) was run on the

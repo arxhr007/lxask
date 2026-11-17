@@ -69,6 +69,41 @@ def test_to_task_rejects_unusable_items(change, reason):
     assert to_task(item, "t") == (None, reason)
 
 
+def test_strict_metadata_survives_task_conversion_and_rl_preparation():
+    from prepare_rl import TASK_FIELDS
+
+    metadata = {
+        "forbid": ["wc"],
+        "unchanged": ["keep.txt"],
+        "exit_ok": [0, 1],
+        "family": "precision/counts",
+        "category": "counting",
+        "source": "precision-v1",
+        "split": "train",
+        "negatives": ["wc -l a.txt"],
+    }
+    item = {
+        "q": "count lines without wc",
+        "setup": ["printf 'a\\nb\\n' > a.txt"],
+        "reference": "awk 'END {print NR}' a.txt",
+        "expect_kind": "number",
+        "expect_values": ["2"],
+        **metadata,
+    }
+    task, why = to_task(item, "strict")
+    assert why == ""
+    prepared = {key: task[key] for key in TASK_FIELDS if key in task}
+    assert {key: prepared.get(key) for key in metadata} == metadata
+
+
+def test_task_proof_rejects_checkers_that_accept_a_hard_negative(monkeypatch):
+    import prove_exec_tasks
+
+    task = {"q": "count words", "reference": "right", "expect": {"number": 2}, "negatives": ["wrong"]}
+    monkeypatch.setattr(prove_exec_tasks, "attempt", lambda task, command: {"success": command in {"right", "wrong"}})
+    assert prove_exec_tasks.prove(task) == "passes a hard negative"
+
+
 def test_server_answers_each_batch_in_order():
     lines = [json.dumps([{"task": {}, "command": ""}, {"task": {}, "command": ""}]) + "\n", "\n"]
     out = io.StringIO()

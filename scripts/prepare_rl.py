@@ -20,7 +20,7 @@ import json
 from collections import Counter
 from pathlib import Path
 
-from build_dataset import EVALSETS, SEED, SIMILARITY, TEST_SETS, embed_all, load_jsonl, normal, write_jsonl
+from execution_tasks import TASK_FIELDS
 from lxask import config
 from lxask.llm import Embedder
 from lxask.prompt import build_messages
@@ -28,7 +28,6 @@ from lxask.retrieve import Retriever
 
 ROOT = Path(__file__).resolve().parents[1]
 HELD_OUT = 200
-TASK_FIELDS = ("id", "q", "setup", "expect", "check", "reference")
 
 
 def order_key(task: dict) -> bytes:
@@ -36,6 +35,8 @@ def order_key(task: dict) -> bytes:
 
 
 def main() -> None:
+    from build_dataset import EVALSETS, SEED, SIMILARITY, TEST_SETS, embed_all, load_jsonl, normal, write_jsonl
+
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("proved", type=Path)
     args = parser.parse_args()
