@@ -26,8 +26,16 @@ counts where round 3 slips — but neither dominates, and both fail the tables
 family almost entirely (1-2 of 24): tracking which column index a name maps to
 across three delimiters is beyond what 48 examples teach a model this size. The
 round-1 adapter remains the candidate: it wins or ties on the shared dev set and
-already has a frozen-test score. A merged or routed pair could in principle get
-both halves; that is untested.
+already has a frozen-test score.
+
+Combining the two was tried both ways. Stacked as one rank-32 adapter (lora_A
+rows and lora_B columns concatenated, so its delta is exactly round 1's plus
+round 3's) it falls to 58.0% on the shared dev set — the summed deltas interfere
+and degrade both halves. Routing does better: choosing each task's better
+adapter reaches 84.8%, and a simple family rule (round 3 for edits, fields and
+permissions, round 1 elsewhere) gets 79.9%. A shipped precision adapter is
+therefore the round-1 one, or a routed pair if a family keyword rule is added;
+the merged adapter is not a candidate.
 
 ### Precision pilot: contrastive LoRA (measured, not shipped)
 
