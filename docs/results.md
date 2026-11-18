@@ -28,14 +28,34 @@ across three delimiters is beyond what 48 examples teach a model this size. The
 round-1 adapter remains the candidate: it wins or ties on the shared dev set and
 already has a frozen-test score.
 
-Combining the two was tried both ways. Stacked as one rank-32 adapter (lora_A
-rows and lora_B columns concatenated, so its delta is exactly round 1's plus
-round 3's) it falls to 58.0% on the shared dev set — the summed deltas interfere
-and degrade both halves. Routing does better: choosing each task's better
-adapter reaches 84.8%, and a simple family rule (round 3 for edits, fields and
-permissions, round 1 elsewhere) gets 79.9%. A shipped precision adapter is
-therefore the round-1 one, or a routed pair if a family keyword rule is added;
-the merged adapter is not a candidate.
+Combining the two was tried both ways, and the frozen test set settles it. On
+the shared dev set a stacked rank-32 adapter (lora_A rows and lora_B columns
+concatenated, so its delta is exactly round 1's plus round 3's) scores 71.9% —
+below both parents — and a keyword rule sending edit, fields and permissions
+questions to round 3 reaches 79.9% against an 84.8% per-task oracle. On the
+frozen 224-task test set, though, the pair's apparent complementarity mostly
+evaporates:
+
+| | shared dev | frozen test |
+|---|---|---|
+| round-1 adapter | 74.1% | **62.9%** |
+| round-3 adapter | 73.2% | 53.1% |
+| stacked merge | 71.9% | — |
+| keyword-routed pair | 79.9% | 63.4% |
+| per-task oracle | 84.8% | 68.3% |
+
+Round 3's dev advantages do not generalize (its edits score falls from 24/24 to
+4/24 on test phrasings), so routing gains half a point over round 1 alone and
+the oracle ceiling itself drops to 68.3%. Round 1 is again the candidate: it
+generalizes (73.8% on its own frozen test) where the others do not.
+
+One scoring caveat worth recording: these comparisons were first run without
+`--init` on the scoring container, and killed helper processes piled up as
+zombies under `nobody` until the process limit stopped later tasks from
+starting — the merge's first score of 58.0% and a run of impossible `mv`/`cp`
+failures were that artifact, not the model. Container scoring must run with
+`--init`; the pilot's published 80.6%/73.8% and the shared-dev scores were
+re-verified under it and are unchanged.
 
 ### Precision pilot: contrastive LoRA (measured, not shipped)
 
