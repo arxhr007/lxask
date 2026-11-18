@@ -15,7 +15,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-blue" alt="MIT licence"></a>
   <a href="docs/install.md#platforms"><img src="https://img.shields.io/badge/linux-x86__64%20%7C%20arm64-lightgrey" alt="Linux x86_64 and arm64"></a>
   <img src="https://img.shields.io/badge/after%20install-no%20network-brightgreen" alt="no network after installing">
-  <a href="https://huggingface.co/aaronthomas123/lxask"><img src="https://img.shields.io/badge/%F0%9F%A4%97-model%20on%20Hugging%20Face-yellow" alt="model on Hugging Face"></a>
+  <a href="https://huggingface.co/arxhr007/lxask"><img src="https://img.shields.io/badge/%F0%9F%A4%97-model%20on%20Hugging%20Face-yellow" alt="model on Hugging Face"></a>
 </p>
 
 <p align="center">
@@ -128,7 +128,7 @@ you state, and asks back when a request is too vague to answer.
 
 ## More
 
-- The model files are on Hugging Face: [aaronthomas123/lxask](https://huggingface.co/aaronthomas123/lxask) (the 986 MB chat model, the
+- The model files are on Hugging Face: [arxhr007/lxask](https://huggingface.co/arxhr007/lxask) (the 986 MB chat model, the
   37 MB adapters, checksums and a model card). The installer downloads them for you;
   you only need that page to run the model in your own llama.cpp setup.
 - Kept loaded between questions (the installer asks; on by default), answers take about
