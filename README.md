@@ -29,7 +29,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/demo.gif" width="760" alt="lxask answering a request with a restriction, asking back on a vague one, and filling the prompt with Ctrl+G">
+  <img src="docs/assets/demo.gif" width="760" alt="lxask answering everyday requests, keeping a restriction, and asking back on a vague one">
 </p>
 
 ```
