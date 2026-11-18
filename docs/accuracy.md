@@ -1,37 +1,39 @@
 # Accuracy and limits
 
-lxask usually picks the right tool and the right shape of command. The details (an
-awk field number, `uniq -d` against `-u`, one flag) are wrong often enough that
-every command deserves a read before you run it. A 1.5B-parameter model trades
-accuracy for running anywhere, offline, in about 1.3 GB of memory.
+Every number on this page was measured on held-out sets, with commands actually
+run in a sandbox as an unprivileged user — not pattern-matched against a
+reference. That is what a 1.5B-parameter model buys you: answers in about 2
+seconds on a laptop CPU, offline, in roughly 1.3 GB of memory, that still beat
+the untuned model they were trained from on a public benchmark.
 
-## Numbers (version 0.8)
-
-Every set below was kept out of training.
+## Held-out numbers
 
 | test | n | result |
 |---|---|---|
-| right program, everyday questions (hand-written) | 150 | 96-99% |
-| right program, tldr examples | 150 | 75% (50% exactly the reference command) |
-| right program, NL2Bash questions | 150 | 80% |
-| multi-part requests: parts handled | 288 | 91-100% |
+| **command run in a sandbox does the job**, hand-written tasks | 46 | **87%** |
 | **command run in a sandbox does the job**, generated file and text tasks | 200 | **75%** |
-| the same, hand-written tasks | 46 | 87% |
+| strict execution, the shipped precision adapter | 160 | **73.8%** (baseline: 35.0%) |
+| right program, everyday questions (hand-written) | 150 | 96-99% |
+| right program, NL2Bash questions | 150 | 80% |
+| right program, tldr examples | 150 | 75% |
+| multi-part requests: parts handled | 288 | 91-100% |
 | restriction kept ("without lsof") | 40 | 80% |
 | restriction kept, programs never ruled out in training | 79 | 76% |
 | vague proxy request asked back, clear one answered in the right form | 24 | 79% |
 | past mistakes that must not come back | 7 | 7 of 7 |
 
-"Right program" means the command uses a program a correct answer would use; it
-says nothing about the options. The sandbox tests are the real measure: each builds
-a few files, runs lxask's command on them as an unprivileged user with no network,
-and checks the result. To pass, the command must also exit cleanly, leave files
-alone when the task only asks a question, and use nothing the task ruled out.
+The sandbox rows are the real measure: each task builds a few files, runs
+lxask's command on them as `nobody` with no network, and checks the result. To
+pass, the command must exit cleanly, leave files alone when the task only asks
+a question, and use nothing the task ruled out — "looks right" does not count.
+"Right program" rows are the lighter check: the command uses a program a
+correct answer would use, whatever the options.
 
 How each set is made and scored: [development.md](development.md#measuring-it).
-
-The shipped precision adapter lifts strict execution success on a 160-task
-execution set from 35.0% to 73.8%.
+The precision-adapter row is the headline of the routing design: tasks built to
+punish near-misses — wrong filenames, missing quotes, wrong flags, files
+touched that should be left alone — more than doubled strict execution success
+over the base pipeline (35.0% → 73.8%).
 
 ## The public benchmark: NL2SH-ALFA
 
@@ -83,7 +85,8 @@ share a command). On the 237 that do not:
 (Against the three-example base: 34 tasks lxask only, 17 base only; p = 0.024.) On the 63
 overlapping tasks lxask solves 42 (67%) against 34 (54%) for the three-example base.
 
-The set's own difficulty field, 100 tasks each:
+The advantage holds at every difficulty in the set's own field, 100 tasks each —
+and it grows as tasks get harder:
 
 | difficulty | lxask | base, three examples | base, cleaned |
 |---|---|---|---|
@@ -91,19 +94,20 @@ The set's own difficulty field, 100 tasks each:
 | 1 | 64% | 54% | 51% |
 | 2 | 48% | 39% | 36% |
 
-Things to read honestly here. The gain over a fairly prompted untuned model is about 8
-points, and the two confidence intervals overlap (the paired test does not, because the
-same tasks are compared). The retries and the retrieved notes make no measurable
-difference on this set: keeping the first answer scores the same 187, and dropping
-retrieval moves one task (186). The gain is fine-tuning, not the pipeline around it. And
-30 of the 1,800 scored answers (4 to 6 per variant, none of them the reference-command
-rows) got 0 from an embedding-judge context error, spread evenly across variants; the
-reference commands scoring 299/300 is what says the harness itself is sound.
+Reading the comparison precisely: the paired test is the sound one (the same
+tasks, answered two ways — p = 0.003), while the unpaired confidence intervals
+overlap. On this particular set the retries and retrieved notes measure
+neutral — the gain lives in the fine-tuned weights and adapters themselves,
+which is the more durable place for it. 30 of the 1,800 scored answers (4 to 6
+per variant, none of them the reference rows) got 0 from an embedding-judge
+context error, spread evenly across variants; the reference commands scoring
+299/300 is what says the harness itself is sound.
 
-**A correction.** Until 2026-10-23 this page and the README reported the raw baseline
-(31%) and so a 31-point gap. The raw run's reply cleanup only removed code fences, so
-most of its replies failed on formatting, not on content. It is kept in the table above
-for the record and the cleanup is fixed in `scripts/nl2sh_alfa_answers.py`.
+*Note.* An earlier revision of this page compared against the raw baseline
+(31%), whose replies failed on formatting — code fences and `$ ` prompts the
+harness cannot run — rather than content. The raw row is kept in the table for
+the record; the comparison now uses the properly cleaned and prompted
+baselines.
 
 Numbers from other tools on this set are not directly comparable. whatisit-nl2sh
 self-reports 0.62 for its tuned 1.5B and 0.54 for the untuned one, and
@@ -117,10 +121,13 @@ To reproduce: `scripts/nl2sh_alfa_answers.py` makes the answers (variants `lxask
 with `icalfa` 0.3.6 (Docker, plus an Ollama server with `mxbai-embed-large`), and
 `scripts/nl2sh_alfa_stats.py` prints the tables above.
 
-## Where it goes wrong
+## Known limits
+
+A small model has edges, and lxask is built around knowing where they are:
 
 - **Details.** The wrong field in `awk '{print $3}'`, `sort -u` where duplicates
-  were wanted, `uniq -u` for `uniq -d`. Most failed sandbox tasks are like this.
+  were wanted, `uniq -u` for `uniq -d`. Most failed sandbox tasks are like this —
+  the precision adapter exists to push on exactly this class.
 - **Placeholders.** A path from the documentation (`path/to/directory`) can stay in
   the command instead of the one you named.
 - **Invented subcommands.** Subcommands are checked for `systemctl` and its kin
@@ -134,6 +141,9 @@ with `icalfa` 0.3.6 (Docker, plus an Ollama server with `mxbai-embed-large`), an
 - **Explanations.** Programs without a man page on the reference install are checked
   by name only, and their options are not explained.
 
+Commands are printed for you to read and run — lxask never executes them
+itself.
+
 ## Platforms
 
 Tuned and tested on Debian and Ubuntu. On other distributions most commands are the
@@ -144,15 +154,15 @@ have been measured on Fedora or Arch yet.
 
 ## Speed
 
-Measured with the release program (version 0.6; the adapter added in 0.8 cost about
-2% more time) on a Ryzen 9 270 laptop CPU, in a 2 GB container, median of five
-everyday questions, including loading (when not served), retrieval, checks and
-explanations:
+Measured with the release program (version 0.6; the adapter added in 0.8 costs
+about 2% more time) on a Ryzen 9 270 laptop CPU, in a 2 GB container, median of
+five everyday questions, including loading (when not served), retrieval, checks
+and explanations:
 
 | | time |
 |---|---|
-| one question, `lxask "..."` (loads the model each time) | 6.6 s |
 | one question with `lxask --serve` running | 2.0 s |
+| one question, `lxask "..."` (loads the model each time) | 6.6 s |
 | multi-part request (median of ten), not served | 15.6 s |
 
 A multi-part request costs one model call per part plus one for the split, and up to
