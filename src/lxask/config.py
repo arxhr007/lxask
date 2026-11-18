@@ -11,6 +11,7 @@ MODEL_FILENAME = "model.gguf"
 EMBED_FILENAME = "embed.gguf"
 INDEX_FILENAME = "docs.sqlite"
 ADAPTER_FILENAME = "restrict.gguf"  # the restriction adapter for the installed model (lxask.route)
+PRECISION_FILENAME = "precision.gguf"  # the precision adapter, for every other request
 
 
 def setting(name: str) -> str | None:
@@ -56,8 +57,16 @@ def index_path() -> Path:
 
 
 def adapter_path() -> Path | None:
-    """The adapter, if there is one; LXASK_ADAPTER=off answers without it."""
+    """The restriction adapter, if there is one; LXASK_ADAPTER=off answers without it."""
     if setting("ADAPTER") == "off":
         return None
     path = _resolve("ADAPTER", ADAPTER_FILENAME, "models")
+    return path if path.exists() else None
+
+
+def precision_adapter_path() -> Path | None:
+    """The precision adapter, if there is one; LXASK_PRECISION=off answers without it."""
+    if setting("PRECISION") == "off":
+        return None
+    path = _resolve("PRECISION", PRECISION_FILENAME, "models")
     return path if path.exists() else None

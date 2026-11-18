@@ -36,7 +36,7 @@ The script:
 
 1. picks the build for your CPU: `lxask-x86_64-v3` (AVX2, nearly every x86 PC since
    2015), `lxask-x86_64` (older x86) or `lxask-aarch64`;
-2. downloads it with the model, its adapter, the encoder and the documentation
+2. downloads it with the model, its adapters, the encoder and the documentation
    index, using curl, wget or a logged-in `gh`;
 3. checks every file against `SHA256SUMS`;
 4. puts `lxask` in `~/.local/bin` and the rest in `~/.local/share/lxask`;

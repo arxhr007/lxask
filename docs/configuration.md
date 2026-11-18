@@ -11,6 +11,7 @@ All in `~/.local/share/lxask` (`$LXASK_HOME`, else `$XDG_DATA_HOME/lxask`):
 |---|---|
 | `model.gguf` | link to the model in `models/` (about 990 MB) |
 | `restrict.gguf` | link to the model's restriction adapter in `models/` (37 MB) |
+| `precision.gguf` | link to the model's precision adapter in `models/` (37 MB) |
 | `embed.gguf` | the encoder used to search the documentation (37 MB) |
 | `docs.sqlite` | the documentation index: tldr pages and man page summaries and options (73 MB) |
 | `last.json` | the last answer, for `lxask --bad` |
@@ -28,6 +29,7 @@ The program itself is `~/.local/bin/lxask`.
 | `LXASK_HOME` | `~/.local/share/lxask` | where the files above are |
 | `LXASK_MODEL` | `$LXASK_HOME/model.gguf` | the model |
 | `LXASK_ADAPTER` | `$LXASK_HOME/restrict.gguf` | the restriction adapter; `off` answers without it |
+| `LXASK_PRECISION` | `$LXASK_HOME/precision.gguf` | the precision adapter; `off` answers without it |
 | `LXASK_EMBED_MODEL` | `$LXASK_HOME/embed.gguf` | the encoder; without it, search is by keywords |
 | `LXASK_INDEX` | `$LXASK_HOME/docs.sqlite` | the documentation index |
 | `LXASK_PACKAGE_MANAGERS` | found on the machine | package managers to answer for, comma-separated (`apt,dpkg` or `dnf,rpm`) |
@@ -36,7 +38,7 @@ The program itself is `~/.local/bin/lxask`.
 | `LXASK_TIMING` | unset | set: print how long each start-up stage took |
 | `LXASK_SERVE` | the `serve` setting | `auto`: keep lxask loaded between questions; `off`: load it for each |
 
-`--model FILE` answers without the adapter, since an adapter is made for one model.
+`--model FILE` answers without the adapters, since an adapter is made for one model.
 The `LINU_*` names of lxask 0.8 and earlier still work; `LXASK_*` win.
 
 ## Settings

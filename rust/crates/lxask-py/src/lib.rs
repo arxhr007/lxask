@@ -244,6 +244,15 @@ fn specialist(question: &str, catalog: Option<PyRef<'_, Catalog>>) -> bool {
 }
 
 #[pyfunction]
+#[pyo3(signature = (question, catalog = None))]
+fn adapter(question: &str, catalog: Option<PyRef<'_, Catalog>>) -> &'static str {
+    match lxask_core::route::adapter(question, catalog.as_ref().map(|c| &c.inner)) {
+        lxask_core::route::Adapter::Restrict => "restrict",
+        lxask_core::route::Adapter::Precision => "precision",
+    }
+}
+
+#[pyfunction]
 fn programs_run(command: &str) -> Vec<String> {
     validate::programs_run(command)
 }
@@ -663,6 +672,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(repair, m)?)?;
     m.add_function(wrap_pyfunction!(forbidden, m)?)?;
     m.add_function(wrap_pyfunction!(specialist, m)?)?;
+    m.add_function(wrap_pyfunction!(adapter, m)?)?;
     m.add_function(wrap_pyfunction!(clarification, m)?)?;
     m.add_function(wrap_pyfunction!(about_itself, m)?)?;
     m.add_function(wrap_pyfunction!(programs_run, m)?)?;

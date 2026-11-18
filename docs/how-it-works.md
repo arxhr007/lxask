@@ -69,7 +69,13 @@ the prompt.
 Such requests, and requests about proxies, are answered with a small LoRA adapter
 (37 MB) applied on top of the model. It was trained on these requests and keeps
 restrictions much better (80% against 60%), but it is worse on everyday questions,
-so every other request gets the model alone. `LXASK_ADAPTER=off` turns it off.
+so it only gets these. `LXASK_ADAPTER=off` turns it off.
+
+Every other request gets a second adapter, the precision adapter (another 37 MB),
+trained on tasks that punish near-misses: wrong filenames, missing quotes, the
+wrong flag or an extra file touched. On commands actually run in a sandbox it
+lifts the strict success rate from 35% to 74%
+([results.md](results.md)). `LXASK_PRECISION=off` turns it off.
 
 ### Asking back
 

@@ -57,7 +57,23 @@ failures were that artifact, not the model. Container scoring must run with
 `--init`; the pilot's published 80.6%/73.8% and the shared-dev scores were
 re-verified under it and are unchanged.
 
-### Precision pilot: contrastive LoRA (measured, not shipped)
+### v1.0: the precision adapter, routed next to the restriction one
+
+The round-1 pilot below ships as `precision.gguf`. The runtime now carries two
+named adapters (`route::adapter` picks): requests that rule a program out or
+mention a proxy go to the restriction adapter, every other request to the
+precision adapter, and a missing adapter means the model alone
+(`LXASK_PRECISION=off` turns it off; `--model` answers without either, since an
+adapter is made for one model). Install carries it as `precision-*.gguf` beside
+`restrict-*.gguf`, adding about 35 MB of memory to the loaded model.
+
+Verified through the shipped program itself (`lxask batch`, CPU): 74.7% on
+forbidden_heldout where the restriction adapter answers (75.9% at 0.8 — the one
+different task is within CPU rounding), and 70.0% strict execution success on a
+40-task sample of the precision dev set where the precision adapter answers
+(74.1% on the full set through the same weights).
+
+### Precision pilot: contrastive LoRA (shipped as the v1.0 precision adapter)
 
 Aimed at round 4's dominant failure mode: commands that run fine but do the wrong
 job (43 of its 50 exec_heldout failures exited 0). `scripts/build_precision_tasks.py`
@@ -79,8 +95,9 @@ success, commands run in the sandbox as `nobody` with no network:
 Regression sets, the adapter applied to every question: everyday program 95.7% ->
 98.6%, regressions 7/7 -> 7/7, ambiguous 79.2% -> 79.2%. Restriction questions
 still need the routed restrict adapter (applied alone instead, the precision
-adapter scores 67.1% on forbidden_heldout vs its 75.9%), so a shipped form is
-routing or a merge, not adapter-always.
+adapter scores 67.1% on forbidden_heldout vs its 75.9%), so it ships routed:
+restriction and proxy requests to the restriction adapter, everything else to
+this one.
 
 What still fails on test: the CSV select/sum tasks where the column or filter is
 wrong anyway, "edit in place" answered with a transform that writes elsewhere or

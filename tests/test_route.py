@@ -1,6 +1,6 @@
 import pytest
 
-from lxask.route import specialist
+from lxask.route import adapter, specialist
 from lxask.validate import build_catalog
 
 
@@ -18,6 +18,7 @@ def catalog():
 ])
 def test_ruled_out_programs_and_proxies_go_to_the_adapter(question, catalog):
     assert specialist(question, catalog)
+    assert adapter(question, catalog) == "restrict"
 
 
 @pytest.mark.parametrize("question", [
@@ -29,6 +30,7 @@ def test_ruled_out_programs_and_proxies_go_to_the_adapter(question, catalog):
 ])
 def test_everything_else_stays_with_the_model(question, catalog):
     assert not specialist(question, catalog)
+    assert adapter(question, catalog) == "precision"
 
 
 def test_without_a_catalogue_any_ruled_out_word_counts():

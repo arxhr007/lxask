@@ -67,11 +67,14 @@ def lxask_variant(retry, rag):
     from lxask.answer import answer, clarification
     from lxask.llm import LLM, Embedder
     from lxask.retrieve import Retriever
-    from lxask.route import specialist
+    from lxask import route
     from lxask.validate import load_catalog
 
     catalog = load_catalog(config.index_path())
-    llm = LLM(config.model_path(), adapter=config.adapter_path())
+    llm = LLM(config.model_path(), adapters={name: path for name, path in
+                                            [("restrict", config.adapter_path()),
+                                             ("precision", config.precision_adapter_path())]
+                                            if path is not None})
     search = lambda task: []  # noqa: E731
     if rag:
         search = Retriever(config.index_path(), embed=Embedder(config.embed_model_path())).search
@@ -81,7 +84,7 @@ def lxask_variant(retry, rag):
         if clarification(q):
             commands.append("")
             continue
-        llm.specialize(specialist(q, catalog))
+        llm.specialize(route.adapter(q, catalog))
         steps = answer(q, llm.ask, search, catalog, resample=llm.sample if retry else None)
         commands.append(" && ".join(s.command for s in steps if s.command))
     return commands

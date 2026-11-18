@@ -237,6 +237,7 @@ def binary_commands(tasks: list[dict], binary: str, model: Path, index: Path, ar
         command = [binary, "batch", "--model", str(model), "--index", str(index)]
         command += ["--no-retry"] * args.no_retry + ["--no-rag"] * args.no_rag
         command += ["--adapter", str(args.adapter)] if args.adapter else ["--no-adapter"]
+        command += ["--precision", str(args.precision)] if args.precision else []
         subprocess.run([*command, str(questions), str(answers)], check=True)
         rows = [json.loads(line) for line in answers.read_text(encoding="utf-8").splitlines()]
     if len(rows) != len(tasks) or any("error" in row for row in rows):
@@ -249,6 +250,7 @@ def main() -> None:
     parser.add_argument("--model", type=Path)
     parser.add_argument("--no-rag", action="store_true")
     parser.add_argument("--adapter", type=Path, help="the restriction adapter, applied to the requests lxask.route sends it")
+    parser.add_argument("--precision", type=Path, help="the precision adapter, applied to every other request")
     parser.add_argument("--name")
     parser.add_argument("--limit", type=int)
     parser.add_argument("--no-retry", action="store_true", help="keep the first answer, as `lxask --no-retry` does")
@@ -300,7 +302,7 @@ def task_commands(args, tasks: list[dict]) -> list[str]:
     from lxask.answer import answer, clarification
     from lxask.llm import LLM, Embedder
     from lxask.retrieve import Retriever
-    from lxask.route import specialist
+    from lxask import route
     from lxask.validate import load_catalog
 
     model = args.model or config.model_path()
@@ -311,10 +313,11 @@ def task_commands(args, tasks: list[dict]) -> list[str]:
     if not args.no_rag:
         embed = Embedder(config.embed_model_path()) if config.embed_model_path().exists() else None
         search = Retriever(config.index_path(), embed=embed).search
-    llm = LLM(model, adapter=args.adapter)
+    llm = LLM(model, adapters={name: path for name, path in [("restrict", args.adapter), ("precision", args.precision)]
+                            if path is not None})
     commands = []
     for task in tasks:  # a question the CLI would ask back gets no command, as there
-        llm.specialize(True if args.adapter_always else specialist(task["q"], catalog))
+        llm.specialize("restrict" if args.adapter_always else route.adapter(task["q"], catalog))
         steps = [] if clarification(task["q"]) else answer(task["q"], llm.ask, search, catalog,
                                                             resample=None if args.no_retry else llm.sample)
         command = " && ".join(step.command for step in steps if step.command)

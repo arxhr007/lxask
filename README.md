@@ -129,7 +129,7 @@ you state, and asks back when a request is too vague to answer.
 ## More
 
 - The model files are on Hugging Face: [aaronthomas123/lxask](https://huggingface.co/aaronthomas123/lxask) (the 986 MB chat model, the
-  37 MB restriction adapter, checksums and a model card). The installer downloads them for you;
+  37 MB adapters, checksums and a model card). The installer downloads them for you;
   you only need that page to run the model in your own llama.cpp setup.
 - Kept loaded between questions (the installer asks; on by default), answers take about
   2 s instead of about 7; it frees its memory after 30 idle minutes. `serve = off` in

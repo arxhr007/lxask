@@ -7,6 +7,8 @@ pub const EMBED_FILENAME: &str = "embed.gguf";
 pub const INDEX_FILENAME: &str = "docs.sqlite";
 /// the restriction adapter for the installed model (lxask_core::route)
 pub const ADAPTER_FILENAME: &str = "restrict.gguf";
+/// the precision adapter for every question the restriction adapter does not take
+pub const PRECISION_FILENAME: &str = "precision.gguf";
 
 /// `LXASK_*` names also read their old `LINU_*` spelling (lxask_core::setting).
 fn env(name: &str) -> Option<String> {
@@ -52,12 +54,20 @@ pub fn index_path() -> PathBuf {
     resolve("LXASK_INDEX", INDEX_FILENAME)
 }
 
-/// The adapter, if there is one; LXASK_ADAPTER=off answers without it.
+/// The restriction adapter, if there is one; LXASK_ADAPTER=off answers without it.
 pub fn adapter_path() -> Option<PathBuf> {
     if env("LXASK_ADAPTER").as_deref() == Some("off") {
         return None;
     }
     Some(resolve("LXASK_ADAPTER", ADAPTER_FILENAME)).filter(|path| path.exists())
+}
+
+/// The precision adapter, if there is one; LXASK_PRECISION=off answers without it.
+pub fn precision_adapter_path() -> Option<PathBuf> {
+    if env("LXASK_PRECISION").as_deref() == Some("off") {
+        return None;
+    }
+    Some(resolve("LXASK_PRECISION", PRECISION_FILENAME)).filter(|path| path.exists())
 }
 
 /// the choices install.sh asked for, as `key = value` lines

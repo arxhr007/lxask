@@ -56,10 +56,11 @@ class Embedder:
 
 
 class LLM:
-    """The chat model, with the LoRA adapter at `adapter` loaded for it if given, applied
-    per request with `specialize` (see lxask.route)."""
+    """The chat model, with the LoRA adapters it is given loaded for it, applied per
+    request with `specialize` (see lxask.route)."""
 
-    def __init__(self, model_path: Path, n_ctx: int = 2048, n_threads: int | None = None, adapter: Path | None = None):
+    def __init__(self, model_path: Path, n_ctx: int = 2048, n_threads: int | None = None,
+                 adapters: dict[str, Path] | None = None):
         from llama_cpp import Llama  # imported here so the rest of lxask works without it
 
         self._llm = Llama(
@@ -73,33 +74,35 @@ class LLM:
             use_mmap=False,
             verbose=False,
         )
-        self._adapter, self._specialized = None, False
-        if adapter is not None:
+        self._adapters: dict[str, object] = {}
+        self._specialized: str | None = None
+        for name, path in (adapters or {}).items():
             import llama_cpp
 
-            self._adapter = llama_cpp.llama_adapter_lora_init(self._llm._model.model, str(adapter).encode("utf-8"))
-            if not self._adapter:
-                raise RuntimeError(f"cannot load the adapter {adapter}")
+            pointer = llama_cpp.llama_adapter_lora_init(self._llm._model.model, str(path).encode("utf-8"))
+            if not pointer:
+                raise RuntimeError(f"cannot load the adapter {path}")
+            self._adapters[name] = pointer
 
-    def specialize(self, on: bool) -> None:
-        """Answer with the adapter applied (`on`), or with the model alone; nothing to do
-        without an adapter. The cache holds keys and values computed with the other
+    def specialize(self, which: str | None) -> None:
+        """Answer with the adapter named `which` applied, or with the model alone when no
+        adapter has that name. The cache holds keys and values computed with the other
         weights, so a switch empties it."""
-        if self._adapter is None or on == self._specialized:
+        if which == self._specialized:
             return
         import ctypes
 
         import llama_cpp
 
-        if on:
-            adapters = (llama_cpp.llama_adapter_lora_p_ctypes * 1)(self._adapter)
+        if which in self._adapters:
+            adapters = (llama_cpp.llama_adapter_lora_p_ctypes * 1)(self._adapters[which])
             failed = llama_cpp.llama_set_adapters_lora(self._llm.ctx, adapters, 1, (ctypes.c_float * 1)(1.0))
         else:
             failed = llama_cpp.llama_set_adapters_lora(self._llm.ctx, None, 0, None)
         if failed:
-            raise RuntimeError(f"cannot {'apply' if on else 'remove'} the adapter")
+            raise RuntimeError(f"cannot apply the adapter {which}")
         self._llm.reset()
-        self._specialized = on
+        self._specialized = which
 
     def chat(
         self,

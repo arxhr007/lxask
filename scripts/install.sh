@@ -9,8 +9,9 @@
 # 18.10, RHEL 8 and later); nothing else is installed. Downloading uses gh when it is
 # logged in, else curl or wget (a private repository needs gh, or GH_TOKEN with python3).
 #
-# Puts the model, its restriction adapter (if the release has one), the encoder, the
-# docs index and their licences (NOTICE) in $LXASK_HOME (default ~/.local/share/lxask)
+# Puts the model, its adapters (restrict-* and precision-*, if the release has them),
+# the encoder, the docs index and their licences (NOTICE) in $LXASK_HOME (default
+# ~/.local/share/lxask)
 # and `lxask` in ~/.local/bin. It asks whether to keep lxask loaded between questions
 # (recommended; default yes) and records the answer in $LXASK_HOME/settings.
 set -eu
@@ -96,7 +97,8 @@ fetch() {  # the release's files for this machine into $STAGE
         [ -f "$FROM/SHA256SUMS" ] || die "$FROM has no SHA256SUMS: is it a copy of the release files?"
         say "copying the release files from $FROM"
         model=$(cd "$FROM" && ls lxask-*.gguf 2>/dev/null | head -n 1)
-        adapter=$(cd "$FROM" && ls restrict-*.gguf 2>/dev/null | head -n 1)
+        adapter="$(cd "$FROM" && ls restrict-*.gguf 2>/dev/null | head -n 1)
+$(cd "$FROM" && ls precision-*.gguf 2>/dev/null | head -n 1)"
         for name in $WANTED $model $adapter; do
             [ -f "$FROM/$name" ] || die "$FROM lacks $name"
             cp "$FROM/$name" "$STAGE/$name"
@@ -108,7 +110,7 @@ fetch() {  # the release's files for this machine into $STAGE
         say "downloading $REPO $TAG with gh (about 1.1 GB)"
         set --
         for name in $WANTED; do set -- "$@" -p "$name"; done
-        gh release download "$TAG" -R "$REPO" -D "$STAGE" "$@" -p 'lxask-*.gguf' -p 'restrict-*.gguf' --clobber
+        gh release download "$TAG" -R "$REPO" -D "$STAGE" "$@" -p 'lxask-*.gguf' -p 'restrict-*.gguf' -p 'precision-*.gguf' --clobber
         gh release download "$TAG" -R "$REPO" -D "$STAGE" -p LICENSE -p NOTICE --clobber 2>/dev/null || true
     elif [ -n "${GH_TOKEN:-${GITHUB_TOKEN:-}}" ] && command -v python3 >/dev/null 2>&1; then
         # A private repository: assets come from the API, by id. Python reads the token
@@ -166,7 +168,7 @@ def get(url, out=None, accept=None, auth=True):
 release = json.loads(get(f"https://api.github.com/repos/{repo}/releases/tags/{tag}"))
 for asset in release["assets"]:
     name = asset["name"]
-    if name == os.path.basename(name) and (name in wanted or (name.startswith(("lxask-", "restrict-")) and name.endswith(".gguf"))):
+    if name == os.path.basename(name) and (name in wanted or (name.startswith(("lxask-", "restrict-", "precision-")) and name.endswith(".gguf"))):
         print(f"  {name}", flush=True)
         get(f"https://api.github.com/repos/{repo}/releases/assets/{asset['id']}", os.path.join(stage, name),
             accept="application/octet-stream")
@@ -177,7 +179,7 @@ EOF
         http_get "$base/SHA256SUMS" "$STAGE/SHA256SUMS" \
             || die "cannot download $base/SHA256SUMS (needs curl or wget; a private repository needs gh or GH_TOKEN)"
         model=$(grep -o 'lxask-[^ ]*\.gguf' "$STAGE/SHA256SUMS" | head -n 1)
-        adapter=$(grep -o 'restrict-[^ ]*\.gguf' "$STAGE/SHA256SUMS" | head -n 1)
+        adapter=$(grep -oE '(restrict|precision)-[^ ]*\.gguf' "$STAGE/SHA256SUMS" | sort -u)
         for name in $WANTED $model $adapter $(grep -o -w -E "LICENSE|NOTICE" "$STAGE/SHA256SUMS"); do
             [ "$name" = SHA256SUMS ] && continue
             say "  $name"
@@ -215,14 +217,19 @@ elif [ -f "$DATA/model.gguf" ] && [ ! -L "$DATA/model.gguf" ]; then
     mv "$DATA/model.gguf" "$DATA/model.gguf.previous"
 fi
 ln -sfn "$DATA/models/$MODEL" "$DATA/model.gguf"
-# The adapter is made for this model: one from an older release would not fit it.
-ADAPTER=$(cd "$STAGE" && ls restrict-*.gguf 2>/dev/null | head -n 1)
-if [ -n "$ADAPTER" ]; then
-    mv "$STAGE/$ADAPTER" "$DATA/models/$ADAPTER"
-    ln -sfn "$DATA/models/$ADAPTER" "$DATA/restrict.gguf"
-elif [ -L "$DATA/restrict.gguf" ]; then
-    rm -f "$DATA/restrict.gguf"
-fi
+# The adapters are made for this model: ones from an older release would not fit it.
+ADAPTER=""
+for kind in restrict precision; do
+    name=$(cd "$STAGE" && ls $kind-*.gguf 2>/dev/null | head -n 1)
+    if [ -n "$name" ]; then
+        mv "$STAGE/$name" "$DATA/models/$name"
+        ln -sfn "$DATA/models/$name" "$DATA/$kind.gguf"
+        ADAPTER="$ADAPTER $name"
+    elif [ -L "$DATA/$kind.gguf" ]; then
+        rm -f "$DATA/$kind.gguf"
+    fi
+done
+ADAPTER=${ADAPTER# }
 for name in $OPTIONAL; do
     if [ -f "$STAGE/$name" ]; then mv "$STAGE/$name" "$DATA/$name"; fi
 done
@@ -232,7 +239,7 @@ if [ -e "$BIN/lxask" ] || [ -L "$BIN/lxask" ]; then
     mv -f "$BIN/lxask" "$DATA/lxask.previous"  # an older lxask
 fi
 mv "$STAGE/$PROGRAM" "$BIN/lxask"
-say "installed lxask ($PROGRAM) and $MODEL${ADAPTER:+ with its adapter $ADAPTER}; the command is $BIN/lxask"
+say "installed lxask ($PROGRAM) and $MODEL${ADAPTER:+ with its adapters $ADAPTER}; the command is $BIN/lxask"
 if [ -e "$BIN/linu" ] && [ ! -L "$BIN/linu" ]; then
     mv -f "$BIN/linu" "$DATA/linu.previous"
     ln -s lxask "$BIN/linu"
@@ -257,7 +264,7 @@ if [ -z "$SERVE" ]; then
     if (: </dev/tty) 2>/dev/null; then
         printf '%s\n%s\n%s' \
             "Keep lxask loaded between questions, for answers in about 2 s instead of 7?" \
-            "It starts on your first question, holds about 1.3 GB of memory while loaded" \
+            "It starts on your first question, holds about 1.4 GB of memory while loaded" \
             "and stops itself after 30 minutes without a question. Recommended. [Y/n] " >/dev/tty
         reply=""
         read -r reply </dev/tty || reply=""

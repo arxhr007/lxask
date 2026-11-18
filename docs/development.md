@@ -42,7 +42,7 @@ root needed). Each takes 5 to 9 minutes with two jobs. A release is then:
 
 ```sh
 scripts/build_release.sh DIR      # the three programs and the Python wheel
-scripts/release_files.sh DIR      # adds the installed model, adapter, encoder, index,
+scripts/release_files.sh DIR      # adds the installed model, adapters, encoder, index,
                                   # LICENSE, NOTICE, install.sh and SHA256SUMS
 gh release create vX.Y.Z -R arxhr007/lxask DIR/*
 ```

@@ -1,9 +1,10 @@
 # Architecture
 
-lxask is one Rust program and four files: the model, its restriction adapter, a small
-encoder and a SQLite index of documentation. Everything runs on your machine, on the
-CPU. Python is used only to build those files and to measure the result, and it calls
-the same Rust core the program uses, so what is measured is what ships.
+lxask is one Rust program and five files: the model, two small LoRA adapters
+(restriction and precision), a small encoder and a SQLite index of documentation.
+Everything runs on your machine, on the CPU. Python is used only to build those files
+and to measure the result, and it calls the same Rust core the program uses, so what
+is measured is what ships.
 
 For the reasoning behind each step in prose, see [how-it-works.md](how-it-works.md);
 for numbers, [results.md](results.md).
@@ -22,9 +23,9 @@ flowchart TD
     vague -- no --> server{"lxask --serve running?"}
     server -- yes --> viaserver["the server answers<br/>with the same steps below"]
     server -- no --> load["load model + adapter, encoder,<br/>index and catalogue<br/>Loaded::load"]
-    load --> route{"rules out a program<br/>or about a proxy?<br/>route::specialist"}
+    load --> route{"rules out a program<br/>or about a proxy?<br/>route::adapter"}
     route -- yes --> adapteron["apply the restriction adapter<br/>Llm::specialize"]
-    route -- no --> adapteroff["model alone"]
+    route -- no --> adapteroff["apply the precision adapter<br/>(model alone if none installed)"]
     adapteron --> split
     adapteroff --> split
     split{"several parts?<br/>split::needs_split"} -- yes --> tasks["one model call:<br/>request to tasks<br/>retried if a file pattern,<br/>size or age is lost"]
@@ -75,12 +76,13 @@ flowchart LR
         shlex["shlex"]
     end
     subgraph llm ["lxask-llm"]
-        chat["chat model<br/>+ LoRA adapter"]
+        chat["chat model<br/>+ LoRA adapters"]
         embedder["encoder"]
     end
     subgraph files ["~/.local/share/lxask"]
         modelfile[("model.gguf<br/>Qwen2.5-Coder-1.5B fine-tune")]
         adapterfile[("restrict.gguf<br/>LoRA adapter")]
+        precisionfile[("precision.gguf<br/>LoRA adapter")]
         embedfile[("embed.gguf<br/>bge-small")]
         index[("docs.sqlite<br/>tldr + man index,<br/>embeddings, catalogue")]
     end
@@ -97,6 +99,7 @@ flowchart LR
     embedder --> llamacpp
     chat --- modelfile
     chat --- adapterfile
+    chat --- precisionfile
     embedder --- embedfile
     retrievers --- index
     validate --- index
@@ -167,7 +170,9 @@ flowchart TD
     rl --> export["export_gguf.sh<br/>merge, GGUF, 4-bit"] --> modelgguf[("model")]
     rl --> mix["mix_finetune.py<br/>restrictions and proxy contexts"]
     mix --> adapter["LoRA adapter<br/>convert_lora_to_gguf.py"] --> restrict[("restrict.gguf")]
-    modelgguf & restrict & docs --> evals{"eval.py + exec_eval.py<br/>ship rule: no set worse<br/>than before"}
+    gen --> prec["build_precision_tasks.py<br/>prove_exec_tasks.py<br/>prepare_precision.py"]
+    prec --> precadapter["train_lora.py +<br/>convert_lora_to_gguf.py"] --> precision[("precision.gguf")]
+    modelgguf & restrict & precision & docs --> evals{"eval.py + exec_eval.py<br/>ship rule: no set worse<br/>than before"}
     evals -- pass --> release["build_release.sh<br/>release_files.sh"] --> gh["GitHub release"] --> install["install.sh"]
     evals -- fail --> results["results.md:<br/>tried, not shipped"]
 ```
@@ -178,7 +183,7 @@ command as an unprivileged user in a container with no network
 
 ## Files on disk
 
-Everything lives in `~/.local/share/lxask`: the model, the adapter, the encoder, the
+Everything lives in `~/.local/share/lxask`: the model, the adapters, the encoder, the
 index, `last.json` and your `feedback.jsonl`; the program is `~/.local/bin/lxask`.
 The full list and every setting: [configuration.md](configuration.md).
 
@@ -187,11 +192,12 @@ The full list and every setting: [configuration.md](configuration.md).
 - **Check, don't trust.** A 1.5B model gets details wrong, so every command is
   checked against the documentation and the request, retried when a check objects,
   and marked `unverified:` when it still fails. It never runs a command.
-- **Small, local, offline.** One program and about 1.1 GB of files, 1.3 GB of memory
+- **Small, local, offline.** One program and about 1.2 GB of files, 1.4 GB of memory
   while answering, no network after installing.
-- **Route instead of retrain.** The model fine-tuned on restrictions got worse on
-  everyday questions, so it ships as an adapter used only for the requests it is
-  better at ([results.md](results.md)).
+- **Route instead of retrain.** A model fine-tuned on one kind of request drifts
+  on the others, so the fixes ship as two small adapters and each request goes to
+  the one it is for: restrictions to `restrict.gguf`, everything else to
+  `precision.gguf` ([results.md](results.md)).
 - **Ask back instead of guessing** when a request means different commands in
   different contexts.
 - **Fixed text for questions about lxask**, rather than teaching the model facts

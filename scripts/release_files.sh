@@ -7,9 +7,9 @@
 #
 # OUT_DIR ends up with lxask-x86_64-v3, lxask-x86_64, lxask-aarch64, the lxask._core wheel
 # (for training and evaluation; users do not need it), the model (named after the file
-# model.gguf points to), its restriction adapter (named after the file restrict.gguf
-# points to, if there is one), embed.gguf, docs.sqlite, LICENSE, NOTICE, install.sh and
-# SHA256SUMS.
+# model.gguf points to), its adapters (named after the files restrict.gguf and
+# precision.gguf point to, if there are any), embed.gguf, docs.sqlite, LICENSE, NOTICE,
+# install.sh and SHA256SUMS.
 # scripts/install.sh installs from exactly these, downloaded or copied (--from OUT_DIR).
 set -euo pipefail
 
@@ -27,16 +27,20 @@ NAME=$(basename "$MODEL")
 case $NAME in lxask-*.gguf) ;; linu-*.gguf) NAME="lxask-${NAME#linu-}" ;; *) NAME="lxask-$NAME" ;; esac  # linu: its name up to 0.8
 
 cp "$MODEL" "$OUT/$NAME"
-ADAPTER_NAME=""
-if [ -e "$DATA/restrict.gguf" ]; then
-    ADAPTER=$(readlink -f "$DATA/restrict.gguf")
-    ADAPTER_NAME=$(basename "$ADAPTER")
-    case $ADAPTER_NAME in restrict-*.gguf) ;; *) ADAPTER_NAME="restrict-$ADAPTER_NAME" ;; esac
-    cp "$ADAPTER" "$OUT/$ADAPTER_NAME"
-fi
+ADAPTER_NAMES=""
+for kind in restrict precision; do
+    if [ -e "$DATA/$kind.gguf" ]; then
+        ADAPTER=$(readlink -f "$DATA/$kind.gguf")
+        ADAPTER_NAME=$(basename "$ADAPTER")
+        case $ADAPTER_NAME in $kind-*.gguf) ;; *) ADAPTER_NAME="$kind-$ADAPTER_NAME" ;; esac
+        cp "$ADAPTER" "$OUT/$ADAPTER_NAME"
+        ADAPTER_NAMES="$ADAPTER_NAMES $ADAPTER_NAME"
+    fi
+done
+ADAPTER_NAMES=${ADAPTER_NAMES# }
 cp "$DATA/embed.gguf" "$DATA/docs.sqlite" "$OUT/"
 cp "$ROOT/scripts/install.sh" "$OUT/install.sh"
 cp "$ROOT/LICENSE" "$ROOT/NOTICE" "$OUT/"
-(cd "$OUT" && sha256sum lxask-x86_64-v3 lxask-x86_64 lxask-aarch64 lxask-*.whl "$NAME" $ADAPTER_NAME embed.gguf docs.sqlite LICENSE NOTICE install.sh > SHA256SUMS)
+(cd "$OUT" && sha256sum lxask-x86_64-v3 lxask-x86_64 lxask-aarch64 lxask-*.whl "$NAME" $ADAPTER_NAMES embed.gguf docs.sqlite LICENSE NOTICE install.sh > SHA256SUMS)
 ls -la "$OUT"
 cat "$OUT/SHA256SUMS"

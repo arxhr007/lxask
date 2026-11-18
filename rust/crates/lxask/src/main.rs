@@ -60,7 +60,8 @@ a question back instead, naming the choices, and exit status 3.
 
 A request that rules a program out (\"without lsof\") or is about a proxy is answered with
 the model's restriction adapter, $LXASK_HOME/restrict.gguf if installed (LXASK_ADAPTER: another
-file, or off).";
+file, or off); other requests get the precision adapter, precision.gguf (LXASK_PRECISION:
+another file, or off).";
 
 /// Exit status when lxask asked which thing was meant instead of answering.
 const ASKED_BACK: u8 = 3;
@@ -246,9 +247,10 @@ fn main() -> ExitCode {
         eprintln!("lxask: model not found at {} (set LXASK_MODEL or pass --model)", model.display());
         return ExitCode::from(2);
     }
-    // the adapter is made for the installed model, not for one passed with --model
-    let adapter = if args.model.is_none() { config::adapter_path() } else { None };
-    let loaded = match Loaded::load(&model, adapter, args.index.clone(), args.no_rag, args.threads) {
+    // the adapters are made for the installed model, not for one passed with --model
+    let (restrict, precision) =
+        if args.model.is_none() { (config::adapter_path(), config::precision_adapter_path()) } else { (None, None) };
+    let loaded = match Loaded::load(&model, restrict, precision, args.index.clone(), args.no_rag, args.threads) {
         Ok(loaded) => loaded,
         Err(error) => {
             eprintln!("lxask: {error}");
@@ -324,14 +326,14 @@ struct Loaded {
 }
 
 impl Loaded {
-    fn load(model: &Path, adapter: Option<PathBuf>, index: Option<PathBuf>, no_rag: bool, threads: Option<i32>)
-        -> Result<Loaded, Error> {
+    fn load(model: &Path, restrict: Option<PathBuf>, precision: Option<PathBuf>, index: Option<PathBuf>,
+            no_rag: bool, threads: Option<i32>) -> Result<Loaded, Error> {
         // Loading the model is most of the start-up time, so it goes on in a thread
         // while the catalogue, the encoder and the index load here.
         let started = std::time::Instant::now();
         let model_path = model.to_path_buf();
         let loading = std::thread::spawn(move || {
-            let weights = lxask_llm::preload(&model_path, adapter.as_deref());
+            let weights = lxask_llm::preload(&model_path, restrict.as_deref(), precision.as_deref());
             timing("model weights", started);
             weights
         });
@@ -365,7 +367,7 @@ impl Loaded {
 
     fn answer(&mut self, question: &str, rag: bool, retry: bool) -> Result<Vec<Step>, Error> {
         let llm = &self.llm;
-        llm.borrow_mut().specialize(lxask_core::route::specialist(question, self.catalog.as_ref()))?;
+        llm.borrow_mut().specialize(lxask_core::route::adapter(question, self.catalog.as_ref()))?;
         let mut chat = |m: &[Message]| llm.borrow_mut().ask(m);
         let mut resample = |m: &[Message], attempt: usize| llm.borrow_mut().sample(m, attempt);
         let retriever = &mut self.retriever;
@@ -478,7 +480,8 @@ fn debug_embed(argv: &[String]) -> ExitCode {
 fn batch(argv: &[String]) -> ExitCode {
     let mut paths = Vec::new();
     let mut model = config::model_path();
-    let mut adapter = config::adapter_path();
+    let mut restrict = config::adapter_path();
+    let mut precision = config::precision_adapter_path();
     let mut index = None;
     let mut retry = true;
     let mut rag = true;
@@ -487,8 +490,12 @@ fn batch(argv: &[String]) -> ExitCode {
     while let Some(arg) = items.next() {
         match arg.as_str() {
             "--model" => model = items.next().map(PathBuf::from).unwrap_or(model),
-            "--adapter" => adapter = items.next().map(PathBuf::from),
-            "--no-adapter" => adapter = None,
+            "--adapter" => restrict = items.next().map(PathBuf::from),
+            "--precision" => precision = items.next().map(PathBuf::from),
+            "--no-adapter" => {
+                restrict = None;
+                precision = None;
+            }
             "--index" => index = items.next().map(PathBuf::from),
             "--threads" => threads = items.next().and_then(|n| n.parse().ok()),
             "--no-retry" => retry = false,
@@ -497,11 +504,11 @@ fn batch(argv: &[String]) -> ExitCode {
         }
     }
     let [input, output] = &paths[..] else {
-        eprintln!("usage: lxask batch [--model M] [--adapter A | --no-adapter] [--index I] [--threads N] [--no-retry] \
-                   [--no-rag] IN.jsonl OUT.jsonl");
+        eprintln!("usage: lxask batch [--model M] [--adapter A] [--precision P] [--no-adapter] [--index I] [--threads N] \
+                   [--no-retry] [--no-rag] IN.jsonl OUT.jsonl");
         return ExitCode::from(2);
     };
-    let mut loaded = match Loaded::load(&model, adapter, index, !rag, threads) {
+    let mut loaded = match Loaded::load(&model, restrict, precision, index, !rag, threads) {
         Ok(loaded) => loaded,
         Err(error) => {
             eprintln!("lxask: {error}");

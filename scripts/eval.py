@@ -67,7 +67,7 @@ from lxask.answer import Step, answer, clarification, unhandled
 from lxask.constraints import programs_run
 from lxask.llm import LLM, Embedder
 from lxask.retrieve import Retriever
-from lxask.route import specialist
+from lxask import route
 from lxask.validate import Catalog, load_catalog, uses
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -192,6 +192,7 @@ def binary_answers(cases: list[dict], args) -> list[list[Step]]:
         command = [args.binary, "batch", "--model", str(args.model), "--index", str(args.index)]
         command += ["--no-retry"] * args.no_retry + ["--no-rag"] * args.no_rag
         command += ["--adapter", str(args.adapter)] if args.adapter else ["--no-adapter"]
+        command += ["--precision", str(args.precision)] if args.precision else []
         if args.threads:
             command += ["--threads", str(args.threads)]
         subprocess.run([*command, str(questions), str(answers)], check=True)
@@ -208,6 +209,7 @@ def main() -> None:
     parser.add_argument("--index", type=Path, default=config.index_path())
     parser.add_argument("--no-rag", action="store_true", help="answer without retrieved notes")
     parser.add_argument("--adapter", type=Path, help="the restriction adapter, applied to the requests lxask.route sends it")
+    parser.add_argument("--precision", type=Path, help="the precision adapter, applied to every other request")
     parser.add_argument("--adapter-always", action="store_true",
                         help="apply --adapter to every question instead of the requests lxask.route sends it (experiments)")
     parser.add_argument("--only", nargs="+", choices=SETS, help="run just these sets")
@@ -238,7 +240,10 @@ def main() -> None:
         embed = Embedder(config.embed_model_path(), args.threads) if config.embed_model_path().exists() else None
         retriever = Retriever(args.index, embed=embed)
         search, mode = retriever.search, "semantic" if retriever.semantic else "keyword"
-    llm = LLM(args.model, n_threads=args.threads, adapter=args.adapter) if args.engine == "python" else None
+    llm = (LLM(args.model, n_threads=args.threads,
+               adapters={name: path for name, path in [("restrict", args.adapter), ("precision", args.precision)]
+                         if path is not None})
+           if args.engine == "python" else None)
 
     out_dir = ROOT / "runs"
     out_dir.mkdir(exist_ok=True)
@@ -262,7 +267,7 @@ def main() -> None:
                 steps, asked = answered_by_binary[i % RUST_BATCH]
             else:
                 asked = clarification(case["q"]) is not None  # the CLI asks back instead of answering
-                llm.specialize(True if args.adapter_always else specialist(case["q"], catalog))
+                llm.specialize("restrict" if args.adapter_always else route.adapter(case["q"], catalog))
                 steps = [] if asked else answer(case["q"], llm.ask, search, catalog,
                                                 resample=None if args.no_retry else llm.sample)
             record = {
