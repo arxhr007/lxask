@@ -1,8 +1,8 @@
 # Development
 
 Building lxask from source, the training data, and how it is measured. For using lxask, see
-[usage.md](usage.md); for the design, [how-it-works.md](how-it-works.md); for every version's
-numbers, [results.md](results.md).
+[usage.md](usage.md); for the design, [how-it-works.md](how-it-works.md); for numbers,
+[accuracy.md](accuracy.md).
 
 ## Layout
 
@@ -73,7 +73,7 @@ Commands in the training set come from three places, and every one has passed
   most used commands) and `everyday` (questions that never name the tool). Multi-part
   requests come from `scenarios` (1 to 4 parts) and `long` (4 to 6 parts).
   Round 3 added `scenarios3`, `retask`, `constraints` and `fix`, round 6 `forbid`,
-  `forbid_scenarios`, `contexts` and `forbid_twins` (see [results](results.md)).
+  `forbid_scenarios`, `contexts` and `forbid_twins`.
   `scripts/filter_generated.py` keeps an item only if every command in it passes
   the validator.
 

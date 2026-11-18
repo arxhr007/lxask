@@ -13,4 +13,3 @@ Inside lxask:
 - [architecture.md](architecture.md): diagrams of the request flow, the components, the server, feedback and the build
 - [how-it-works.md](how-it-works.md): split, retrieve, answer, check, explain, warn
 - [development.md](development.md): layout, building from source, releases, training data, measuring
-- [results.md](results.md): results of every version and training round, including what was not shipped

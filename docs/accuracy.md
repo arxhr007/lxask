@@ -29,11 +29,9 @@ and checks the result. To pass, the command must also exit cleanly, leave files
 alone when the task only asks a question, and use nothing the task ruled out.
 
 How each set is made and scored: [development.md](development.md#measuring-it).
-Every version's numbers: [results.md](results.md).
 
-A precision-tuned LoRA measured after these numbers (not shipped) lifts strict
-execution success on a new 160-task set from 35.0% to 73.8%: see
-[results.md](results.md#precision-pilot-contrastive-lora-measured-not-shipped).
+The shipped precision adapter lifts strict execution success on a 160-task
+execution set from 35.0% to 73.8%.
 
 ## The public benchmark: NL2SH-ALFA
 

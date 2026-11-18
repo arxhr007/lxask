@@ -74,8 +74,8 @@ so it only gets these. `LXASK_ADAPTER=off` turns it off.
 Every other request gets a second adapter, the precision adapter (another 37 MB),
 trained on tasks that punish near-misses: wrong filenames, missing quotes, the
 wrong flag or an extra file touched. On commands actually run in a sandbox it
-lifts the strict success rate from 35% to 74%
-([results.md](results.md)). `LXASK_PRECISION=off` turns it off.
+lifts the strict success rate from 35% to 74%.
+`LXASK_PRECISION=off` turns it off.
 
 ### Asking back
 
@@ -99,5 +99,4 @@ warning does not say whether the command's filter is right; you check that.
 The base model was fine-tuned on about 39,000 examples, from tldr-pages, NL2Bash
 and generated requests checked by the same validator. It then had a round of
 reinforcement learning on commands that were actually run in a sandbox, rewarded
-when they produced the right result. [results.md](results.md) has every training
-round, including the ones that were not shipped.
+when they produced the right result.

@@ -7,7 +7,7 @@ and to measure the result, and it calls the same Rust core the program uses, so 
 is measured is what ships.
 
 For the reasoning behind each step in prose, see [how-it-works.md](how-it-works.md);
-for numbers, [results.md](results.md).
+for numbers, [accuracy.md](accuracy.md).
 
 ## Answering a request
 
@@ -174,7 +174,7 @@ flowchart TD
     prec --> precadapter["train_lora.py +<br/>convert_lora_to_gguf.py"] --> precision[("precision.gguf")]
     modelgguf & restrict & precision & docs --> evals{"eval.py + exec_eval.py<br/>ship rule: no set worse<br/>than before"}
     evals -- pass --> release["build_release.sh<br/>release_files.sh"] --> gh["GitHub release"] --> install["install.sh"]
-    evals -- fail --> results["results.md:<br/>tried, not shipped"]
+    evals -- fail --> results["tried,<br/>not shipped"]
 ```
 
 The evaluation sets are kept out of training throughout; the execution tests run each
@@ -197,7 +197,7 @@ The full list and every setting: [configuration.md](configuration.md).
 - **Route instead of retrain.** A model fine-tuned on one kind of request drifts
   on the others, so the fixes ship as two small adapters and each request goes to
   the one it is for: restrictions to `restrict.gguf`, everything else to
-  `precision.gguf` ([results.md](results.md)).
+  `precision.gguf`.
 - **Ask back instead of guessing** when a request means different commands in
   different contexts.
 - **Fixed text for questions about lxask**, rather than teaching the model facts

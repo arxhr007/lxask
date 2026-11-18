@@ -93,7 +93,7 @@ and [every measurement](docs/accuracy.md).
 
 Qwen2.5-Coder-1.5B fine-tuned on tldr-pages, NL2Bash and questions and answers written by
 language models (every command validated), then reinforcement learning on commands run in a
-sandbox. Every round: [docs/results.md](docs/results.md); the data: [docs/development.md](docs/development.md#training-data).
+sandbox. The data: [docs/development.md](docs/development.md#training-data).
 
 ## Why lxask
 
@@ -148,7 +148,6 @@ you state, and asks back when a request is too vague to answer.
 | [Architecture](docs/architecture.md) | diagrams of the components and the build |
 | [Accuracy and limits](docs/accuracy.md) | every measurement, where it goes wrong, speed |
 | [Development](docs/development.md) | building, training data, measuring |
-| [Results](docs/results.md) | every version and training round |
 
 Found a wrong answer or a bug? [CONTRIBUTING.md](CONTRIBUTING.md) ·
 Security: [SECURITY.md](SECURITY.md)
