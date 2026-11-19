@@ -161,6 +161,27 @@ def test_repair_drops_the_placeholder_prefix_of_a_named_path():
     assert repair("mkfifo path/to/pipe", "make a named pipe") == "mkfifo path/to/pipe"
 
 
+def test_repair_makes_a_directory_placeholder_for_here_the_current_directory():
+    # 1.1.0 answered the README's own example this way
+    assert repair("du -h --max-depth=1 path/to/directory | sort -hr",
+                  "show disk usage of each folder here, biggest first") == "du -h --max-depth=1 . | sort -hr"
+    assert repair("ls -la path/to/folder/", "list everything in this folder") == "ls -la ."
+    assert repair("find path/to/directory -name '*.log'", "find .log files in the current directory") == "find . -name '*.log'"
+    unchanged = [
+        # nothing says here
+        ("du -sh path/to/directory", "show the size of a directory"),
+        # a file placeholder is not the directory
+        ("wc -l path/to/file", "count the lines of the file here"),
+        # two placeholders: which one is here is not known
+        ("cp -r path/to/directory path/to/directory/backup", "copy this folder into its backup"),
+        # a here-document is not a place
+        ("cat path/to/directory", "write a here document into a file"),
+        # where, there: not here
+        ("ls path/to/directory", "show where the logs are"),
+    ]
+    assert [repair(command, task) for command, task in unchanged] == [command for command, _ in unchanged]
+
+
 def test_home_without_home_in_the_request_is_a_slip():
     assert kinds("find files larger than 1 megabyte under the data directory", 'find "$HOME/data" -size +1M') == ["slip"]
     assert kinds("find big files in my home folder", "find ~ -size +1G") == []

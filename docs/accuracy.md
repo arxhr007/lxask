@@ -20,7 +20,7 @@ the untuned model they were trained from on a public benchmark.
 | restriction kept ("without lsof") | 40 | 80% |
 | restriction kept, programs never ruled out in training | 79 | 76% |
 | vague proxy request asked back, clear one answered in the right form | 24 | 79% |
-| past mistakes that must not come back | 7 | 7 of 7 |
+| past mistakes that must not come back | 8 | 8 of 8 |
 
 The sandbox rows are the real measure: each task builds a few files, runs
 lxask's command on them as `nobody` with no network, and checks the result. To
