@@ -803,13 +803,20 @@ fn bare_head_tail(program: &str) -> String {
 }
 
 static HOME_IN_COMMAND: LazyRe = re!(r"~|\$\{?HOME\b|/home/|/root\b");
+// "each folder here", "in this directory", "the current folder"; not a here-document
+static HERE: LazyRe = re!(
+    r"\bhere\b(?![\s-]*(?:doc|document|string)s?\b)|\b(?:this|current|present|working)\s+(?:directory|folder|dir)\b",
+    "i"
+);
+static DIRECTORY_PLACEHOLDER: LazyRe = re!(r"(?<![\w.$~-])/?path/to/(?:directory|folder|dir)/?(?![\w/.-])");
 static FIND_HERE: LazyRe = re!(r"(?<![\w-])((?:sudo\s+)?find)\s+\.(?=\s|$)");
 static REGEX_CLASS_OF_ONE: LazyRe = re!(r"\[(.)\]");
 
 /// Fix the known slips that have one right fix: `ps ... | head -n 1` keeps the header
 /// and the first process with `head -n 2`; `grep` on a directory gets `-r`; a bare
 /// crontab entry is installed with `crontab`. With the task: a tldr placeholder
-/// `path/to/build` for the "build" the task names becomes `build`, a bare `head` or
+/// `path/to/build` for the "build" the task names becomes `build`, and
+/// `path/to/directory` for "here" becomes `.`; a bare `head` or
 /// `tail` gets the task's "first N lines" or "last N lines", `find -mtime 0` for "the
 /// last hour" becomes `-mmin -60`, another distribution's listing of the installed
 /// packages becomes this system's, and a command that always needs root gets `sudo`
@@ -842,6 +849,12 @@ pub fn repair(command: &str, task: &str) -> String {
             let name = group_or_empty(caps, 1);
             if names_path(task, name) { name.to_string() } else { group_or_empty(caps, 0).to_string() }
         });
+        // "show disk usage of each folder here" answered with tldr's `du path/to/directory`:
+        // the directory meant is the current one. Only a lone placeholder: with another
+        // (`path/to/directory/backup`), which one is "here" is not known.
+        if HERE.is_match(task) && command.matches("path/to/").count() == 1 && DIRECTORY_PLACEHOLDER.is_match(&command) {
+            command = DIRECTORY_PLACEHOLDER.sub(&command, ".");
+        }
         let mut wanted: Vec<(bool, i128)> = Vec::new();
         for caps in LINES.finditer(task) {
             if let Some(Num::Int(amount)) = parse_number(group_or_empty(&caps, 2)) {

@@ -5,3 +5,4 @@
 {"q": "list installed packages", "why": "round 1 model answered `pip list`", "must_not": ["\\bpip3?\\b"], "must_cmds": ["dpkg", "apt", "rpm", "dnf", "pacman"]}
 {"q": "delete all empty directories under the current one", "why": "round 1 model answered `rmdir *`", "must_not": ["^rmdir\\s+\\*"], "must_cmds": ["find"]}
 {"q": "how do i see which process is using the most memory", "why": "round 1 explained plain `top` as showing the top 10 by memory", "must_not": [], "must_cmds": ["ps", "top", "htop", "smem"]}
+{"q": "show disk usage of each folder here, biggest first", "why": "1.1.0 left tldr's placeholder in the README's own example: `du -h --max-depth=1 path/to/directory | sort -hr`", "must_not": ["path/to/"], "must_cmds": ["du"]}
