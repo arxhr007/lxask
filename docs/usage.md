@@ -92,6 +92,33 @@ $ lxask "add a proxy"
 
 So far this covers proxies only.
 
+## Explaining a command you already have
+
+Found a command in a script, a README or an old answer? `--explain` takes it apart
+from the same documentation and runs the same checks as an answer, without loading
+the model, so it prints in a fraction of a second:
+
+```
+$ lxask --explain "find . -name '*.tmp' -delete"
+$ find . -name '*.tmp' -delete
+  find  Find files or directories under a directory tree, recursively
+    -name    Base of file name (the path with the leading directories removed) matches shell pattern pattern
+    -delete  Delete files or directories; true if removal succeeded
+  warning: deletes every file the find expression matches
+
+$ lxask --explain "top -b -n 1 -l 1"
+$ top -b -n 1 -l 1
+  unverified: top: -l is not a documented option
+  top  Display dynamic real-time information about running processes
+    -b  Starts top in Batch mode, which could be useful for sending output from top to other programs or to a file
+    -n  Specifies the maximum number of iterations, or frames, top should produce before ending
+```
+
+Quote the command, so the shell passes pipes, `*` and quotes through to lxask
+untouched. Nothing is run. As with answers, an option the documentation says nothing
+about gets no line rather than an invented one, and `unverified:` marks what the
+manual does not know.
+
 ## Straight into your prompt (Ctrl+G)
 
 Add one line to your shell's startup file:
@@ -185,6 +212,7 @@ Without a link: open an issue with the "Bad answer" template on
 |---|---|
 | `--no-explain` | print only the commands |
 | `--command-only` | print only the command line (steps joined by `&&`); notes on stderr |
+| `--explain COMMAND` | explain and check a command you already have, below |
 | `--shell-init bash\|zsh\|fish` | print the Ctrl+G key binding, above |
 | `--no-retry` | keep the first answer even if the checks object (faster) |
 | `--no-rag` | answer without the documentation notes |

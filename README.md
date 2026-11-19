@@ -139,6 +139,8 @@ you state, and asks back when a request is too vague to answer.
 - `lxask --bad "what was wrong"` saves a wrong answer on your machine; `lxask --share`
   turns it into a GitHub issue you can submit. Nothing is sent otherwise.
 - `lxask --command-only "..."` prints just the command, for scripts.
+- `lxask --explain "tar -xzvf logs.tar.gz"` explains a command you already have, part by
+  part, from the man pages and tldr, and checks it; no model is loaded, so it is instant.
 
 | docs | |
 |---|---|

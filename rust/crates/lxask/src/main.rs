@@ -20,7 +20,7 @@ use lxask_core::validate::{load_catalog, Catalog};
 use lxask_core::Error;
 use lxask_llm::{Embedder, Llm};
 
-const USAGE: &str = "usage: lxask [-h] [--about] [--bad] [--share [N]] [--shell-init SHELL] [--model MODEL] [--index INDEX] \
+const USAGE: &str = "usage: lxask [-h] [--about] [--explain COMMAND ...] [--bad] [--share [N]] [--shell-init SHELL] [--model MODEL] [--index INDEX] \
 [--no-rag] [--no-explain] [--command-only] [--show-context] [--no-retry] [--threads THREADS] [--serve] [--idle MINUTES] \
 [--stop] [--version] [question ...]";
 
@@ -33,6 +33,9 @@ positional arguments:
 options:
   -h, --help         show this help message and exit
   --about            who made lxask, and where it lives
+  --explain COMMAND  explain a command you already have, part by part, from the documentation,
+                     and check it the way answers are checked; no model is loaded
+                     (lxask --explain \"tar -xzvf logs.tar.gz\")
   --bad             report the last answer as wrong; any words given are kept as a note
                      (lxask --bad should list directories only)
   --share [N]        print the last N reports (default 1) and a link to a prefilled GitHub
@@ -177,6 +180,10 @@ fn main() -> ExitCode {
         println!("{}", lxask_core::about::about(server::VERSION));
         return ExitCode::SUCCESS;
     }
+    if argv.first().map(String::as_str) == Some("--explain") {
+        // Everything after --explain is the command, its options included.
+        return explain_command(&argv[1..].join(" "));
+    }
     if argv.first().map(String::as_str) == Some("--shell-init") {
         return match argv.get(1).and_then(|shell| shell::init(shell)) {
             Some(script) if argv.len() == 2 => {
@@ -277,6 +284,25 @@ fn main() -> ExitCode {
         println!("{}", text("stdout"));
     }
     ExitCode::from(reply.get("code").and_then(Value::as_u64).unwrap_or(0) as u8)
+}
+
+/// `lxask --explain COMMAND`: the command checked and described from the docs index
+/// alone, as an answer's command would be. Fast, since no model is loaded.
+fn explain_command(command: &str) -> ExitCode {
+    if command.trim().is_empty() {
+        return usage_error("--explain takes a command, e.g. lxask --explain \"tar -xzvf logs.tar.gz\"");
+    }
+    let index = config::index_path();
+    if !index.exists() {
+        eprintln!("lxask: no docs index at {} (set LXASK_INDEX, or run install.sh)", index.display());
+        return ExitCode::from(2);
+    }
+    let Some(catalog) = load_catalog(&index) else {
+        eprintln!("lxask: the index at {} has no catalogue to explain from", index.display());
+        return ExitCode::from(1);
+    };
+    println!("{}", answer::render(&[answer::describe(command, Some(&catalog))], true, None));
+    ExitCode::SUCCESS
 }
 
 /// With LXASK_TIMING set, how long each start-up stage took, on stderr.
