@@ -22,12 +22,13 @@ docker run --rm -p 7860:7860 lxask-space     # then open http://localhost:7860
 
 ## Uploading
 
-Once, create the Space at https://huggingface.co/new-space (owner arxhr007, name
-lxask, SDK Docker, blank template, the free CPU) and log in:
+Once, log in and create the Space (or at https://huggingface.co/new-space: SDK
+Docker, blank template, the free CPU):
 
 ```sh
 pip install -U huggingface_hub
 hf auth login                                   # a token with write access
+hf repo create arxhr007/lxask --repo-type space --space-sdk docker
 ```
 
 Then, each time:
