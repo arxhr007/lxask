@@ -192,6 +192,23 @@ pub fn answer(
     Ok(steps)
 }
 
+/// A command someone already has, checked and described the way an answer is
+/// (`lxask --explain`): no model, only the catalogue and the safety rules. The shell is
+/// asked to parse it too, since unlike a model's answer it may be any length or shape.
+pub fn describe(command: &str, catalog: Option<&Catalog>) -> Step {
+    let command = py::strip(command).to_string();
+    let mut step = Step { command: command.clone(), ..Step::new("") };
+    if command.is_empty() {
+        return step;
+    }
+    step.warnings = find_warnings(&command);
+    if let Some(catalog) = catalog {
+        step.issues = check(&command, catalog, true).into_iter().map(|issue| issue.detail).collect();
+        step.described = explain(&command, catalog);
+    }
+    step
+}
+
 /// `$ ` before each command line, continuation lines aligned under it.
 pub fn render_command(command: &str) -> Vec<String> {
     let mut lines = Vec::new();
@@ -289,6 +306,42 @@ mod tests {
         let (line, notes) = render_command_line(&[first, second], "list processes by memory and stop the top one");
         assert_eq!(line, "ps aux --sort=-%mem && kill -TERM PID");
         assert_eq!(notes, "step 1: unverified: the request says without top; the command uses it\nstep 2: warning: sends a signal");
+    }
+
+    #[test]
+    fn a_command_brought_to_explain_is_checked_described_and_warned_about() {
+        let catalog = crate::validate::build_catalog(
+            ["find", "rm"],
+            // at least validate::MIN_OPTIONS of them, or find's options go unchecked
+            [("find", "-name pattern", "Base of file name matches shell pattern pattern."),
+             ("find", "-delete", "Delete files; true if removal succeeded."),
+             ("find", "-type c", "File is of type c.")],
+            [],
+            [("find".to_string(), "Find files or directories under a directory tree, recursively.".to_string()),
+             ("rm".to_string(), "Remove files or directories.".to_string())],
+        );
+        let step = describe("  find . -name '*.tmp' -delete -frobnicate ", Some(&catalog));
+        assert_eq!(step.command, "find . -name '*.tmp' -delete -frobnicate");
+        assert_eq!(step.issues, vec!["find: -frobnicate is not a documented option".to_string()]);
+        assert_eq!(step.warnings, vec!["deletes every file the find expression matches".to_string()]);
+        let printed = render(&[step], true, None);
+        assert_eq!(
+            printed,
+            "$ find . -name '*.tmp' -delete -frobnicate\n\
+             \x20 unverified: find: -frobnicate is not a documented option\n\
+             \x20 find  Find files or directories under a directory tree, recursively\n\
+             \x20   -name    Base of file name matches shell pattern pattern\n\
+             \x20   -delete  Delete files; true if removal succeeded\n\
+             \x20 warning: deletes every file the find expression matches"
+        );
+    }
+
+    #[test]
+    fn explaining_nothing_or_without_a_catalogue_still_warns() {
+        assert_eq!(describe("   ", None).command, "");
+        let step = describe("rm -rf build", None);
+        assert!(step.issues.is_empty() && step.described.is_empty());
+        assert_eq!(step.warnings, vec!["rm -r deletes whole directory trees and cannot be undone".to_string()]);
     }
 
     #[test]
