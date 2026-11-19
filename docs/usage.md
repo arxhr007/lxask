@@ -99,6 +99,7 @@ Add one line to your shell's startup file:
 ```sh
 eval "$(lxask --shell-init bash)"     # in ~/.bashrc
 eval "$(lxask --shell-init zsh)"      # or in ~/.zshrc
+lxask --shell-init fish | source      # or in ~/.config/fish/config.fish
 ```
 
 Then type what you want to do at the prompt, as plain words, and press **Ctrl+G**:
@@ -114,8 +115,8 @@ request with several steps becomes one line joined by `&&`. When lxask asks back
 answers about itself, your line stays as you typed it.
 
 With `lxask --serve` running, Ctrl+G answers in about 2 seconds. To use another key,
-bind the widget yourself: `bind -x '"\C-x\C-l": __lxask_widget'` (bash) or
-`bindkey '^X^L' __lxask_widget` (zsh).
+bind the widget yourself: `bind -x '"\C-x\C-l": __lxask_widget'` (bash),
+`bindkey '^X^L' __lxask_widget` (zsh) or `bind \cx\cl __lxask_widget` (fish).
 
 ## Keep the model loaded
 
@@ -184,7 +185,7 @@ Without a link: open an issue with the "Bad answer" template on
 |---|---|
 | `--no-explain` | print only the commands |
 | `--command-only` | print only the command line (steps joined by `&&`); notes on stderr |
-| `--shell-init bash\|zsh` | print the Ctrl+G key binding, above |
+| `--shell-init bash\|zsh\|fish` | print the Ctrl+G key binding, above |
 | `--no-retry` | keep the first answer even if the checks object (faster) |
 | `--no-rag` | answer without the documentation notes |
 | `--show-context` | print the notes the model was given, to stderr |

@@ -42,8 +42,9 @@ options:
   --no-rag           answer without retrieved notes
   --no-explain       print the commands without what each part does
   --command-only     print only the command, steps joined by &&; notes go to stderr
-  --shell-init SHELL print a key binding for bash or zsh: type a request, press Ctrl+G, and
-                     the line becomes the command (eval \"$(lxask --shell-init bash)\")
+  --shell-init SHELL print a key binding for bash, zsh or fish: type a request, press Ctrl+G, and
+                     the line becomes the command (eval \"$(lxask --shell-init bash)\";
+                     fish: lxask --shell-init fish | source)
   --show-context     print the retrieved notes to stderr
   --no-retry         keep the first answer even when the checks object to it (faster)
   --threads THREADS  CPU threads (default: half the logical cores)
@@ -182,7 +183,7 @@ fn main() -> ExitCode {
                 print!("{script}");
                 ExitCode::SUCCESS
             }
-            _ => usage_error("--shell-init takes bash or zsh, e.g. eval \"$(lxask --shell-init bash)\""),
+            _ => usage_error("--shell-init takes bash, zsh or fish, e.g. eval \"$(lxask --shell-init bash)\""),
         };
     }
     match argv.first().map(String::as_str) {

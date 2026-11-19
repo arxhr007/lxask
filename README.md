@@ -58,6 +58,8 @@ For Ctrl+G, add one line to `~/.bashrc` (or `zsh` in `~/.zshrc`):
 eval "$(lxask --shell-init bash)"
 ```
 
+For fish, add `lxask --shell-init fish | source` to `~/.config/fish/config.fish` instead.
+
 Linux on x86_64 (ARM64 builds too) with glibc 2.28+: Debian, Ubuntu, Fedora, Arch,
 openSUSE and most others. More in [docs/install.md](docs/install.md), including how to
 check the installer against the release checksums first.
