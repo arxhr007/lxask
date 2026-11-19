@@ -1,4 +1,4 @@
-//! `lxask --shell-init bash|zsh`: a key binding for the shell. Type what you want to do
+//! `lxask --shell-init bash|zsh|fish`: a key binding for the shell. Type what you want to do
 //! at the prompt, press Ctrl+G, and the line is replaced by the command, to read, edit
 //! and run yourself; nothing is run. What lxask says about the command (unverified,
 //! warnings), a question back or the about text goes to the terminal, and the line is
@@ -37,11 +37,29 @@ zle -N __lxask_widget
 bindkey '^G' __lxask_widget
 "#;
 
+const FISH: &str = r#"# lxask: type what you want to do, press Ctrl+G, and the line becomes the command.
+# Nothing runs until you press Enter. In ~/.config/fish/config.fish: lxask --shell-init fish | source
+function __lxask_widget
+    set -l request (commandline | string collect)
+    string trim -- "$request" | string length -q; or return
+    printf '\n\033[2mlxask: %s\033[0m\n' "$request" >&2
+    set -l command (lxask --command-only -- "$request" | string collect)
+    if test -n "$command"
+        commandline --replace -- "$command"
+        commandline --cursor -- (string length -- "$command")
+    end
+    commandline --function repaint
+end
+bind \cg __lxask_widget
+bind -M insert \cg __lxask_widget
+"#;
+
 /// The script for `shell`, or None for a shell without one.
 pub fn init(shell: &str) -> Option<&'static str> {
     match shell {
         "bash" => Some(BASH),
         "zsh" => Some(ZSH),
+        "fish" => Some(FISH),
         _ => None,
     }
 }
@@ -52,16 +70,17 @@ mod tests {
     use std::process::Command;
 
     #[test]
-    fn bash_and_zsh_only() {
+    fn bash_zsh_and_fish_only() {
         assert!(init("bash").unwrap().contains(r#"bind -x '"\C-g": __lxask_widget'"#));
         assert!(init("zsh").unwrap().contains("bindkey '^G' __lxask_widget"));
-        assert!(init("fish").is_none());
+        assert!(init("fish").unwrap().contains(r"bind \cg __lxask_widget"));
+        assert!(init("tcsh").is_none());
     }
 
     #[test]
     fn the_scripts_parse() {
-        for (shell, script) in [("bash", BASH), ("zsh", ZSH)] {
-            // a shell that is not installed is skipped (zsh is often missing)
+        for (shell, script) in [("bash", BASH), ("zsh", ZSH), ("fish", FISH)] {
+            // a shell that is not installed is skipped (zsh and fish are often missing)
             if let Ok(out) = Command::new(shell).args(["-n", "-c", script]).output() {
                 assert!(out.status.success(), "{shell}: {}", String::from_utf8_lossy(&out.stderr));
             }
