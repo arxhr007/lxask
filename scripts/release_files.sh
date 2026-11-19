@@ -3,7 +3,7 @@
 #
 #   scripts/build_release.sh OUT_DIR       # the lxask programs and the Python wheel
 #   scripts/release_files.sh OUT_DIR       # adds the model, the encoder, the index
-#   gh release create v1.0.0 -R arxhr007/lxask OUT_DIR/*
+#   gh release create vX.Y.Z -R arxhr007/lxask OUT_DIR/*
 #
 # OUT_DIR ends up with lxask-x86_64-v3, lxask-x86_64, lxask-aarch64, the lxask._core wheel
 # (for training and evaluation; users do not need it), the model (named after the file
@@ -39,6 +39,10 @@ for kind in restrict precision; do
 done
 ADAPTER_NAMES=${ADAPTER_NAMES# }
 cp "$DATA/embed.gguf" "$DATA/docs.sqlite" "$OUT/"
+# install.sh names the release it installs; a stale tag would install the last one
+VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' "$ROOT/rust/Cargo.toml" | head -n 1)
+grep -q "^TAG=.*:-v$VERSION}}" "$ROOT/scripts/install.sh" \
+    || { echo "scripts/install.sh does not install v$VERSION: update its TAG line" >&2; exit 1; }
 cp "$ROOT/scripts/install.sh" "$OUT/install.sh"
 cp "$ROOT/LICENSE" "$ROOT/NOTICE" "$OUT/"
 (cd "$OUT" && sha256sum lxask-x86_64-v3 lxask-x86_64 lxask-aarch64 lxask-*.whl "$NAME" $ADAPTER_NAMES embed.gguf docs.sqlite LICENSE NOTICE install.sh > SHA256SUMS)
