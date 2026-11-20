@@ -64,6 +64,35 @@ Linux on x86_64 (ARM64 builds too) with glibc 2.28+: Debian, Ubuntu, Fedora, Arc
 openSUSE and most others. More in [docs/install.md](docs/install.md), including how to
 check the installer against the release checksums first.
 
+### Install by hand
+
+`install.sh` only downloads files and puts them in place, so you can do the same yourself:
+
+1. From the [latest release](https://github.com/arxhr007/lxask/releases/latest), download
+   one program (`lxask-x86_64-v3` for x86 PCs since about 2015, `lxask-x86_64` for older
+   ones, `lxask-aarch64` for ARM64), plus `lxask-round4-Q4_K_M.gguf`,
+   `restrict-round4.gguf`, `precision-round4.gguf`, `embed.gguf`, `docs.sqlite` and
+   `SHA256SUMS`. Check them with `sha256sum -c --ignore-missing SHA256SUMS`.
+2. Put the program on your PATH as `lxask`:
+
+   ```sh
+   install -D -m 755 lxask-x86_64-v3 ~/.local/bin/lxask
+   ```
+
+3. Put the rest in `~/.local/share/lxask/` under these names:
+
+   ```sh
+   mkdir -p ~/.local/share/lxask
+   mv lxask-round4-Q4_K_M.gguf ~/.local/share/lxask/model.gguf
+   mv restrict-round4.gguf     ~/.local/share/lxask/restrict.gguf
+   mv precision-round4.gguf    ~/.local/share/lxask/precision.gguf
+   mv embed.gguf docs.sqlite   ~/.local/share/lxask/
+   echo "serve = auto" > ~/.local/share/lxask/settings   # optional: keeps it loaded, ~2 s answers
+   ```
+
+Already downloaded the files? `sh install.sh --from DIR` does steps 2 and 3 from that
+folder, without the network.
+
 ## What it can do
 
 Explains every part of a command, handles several steps in one request, keeps restrictions
