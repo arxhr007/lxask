@@ -91,18 +91,58 @@ fn truthy(value: &str) -> Option<bool> {
     }
 }
 
+/// The environment variable, else `key` in $LXASK_HOME/settings.
+fn setting(env_var: &str, key: &str) -> Option<String> {
+    env(env_var).or_else(|| {
+        std::fs::read_to_string(data_home().join(SETTINGS_FILENAME))
+            .ok()
+            .and_then(|text| settings_value(&text, key))
+            .filter(|v| !v.is_empty())
+    })
+}
+
 /// Whether a question starts a server when none is running (`serve = auto` in the
 /// settings install.sh writes, or LXASK_SERVE=auto|off); off when nothing says so.
 pub fn serve_auto() -> bool {
-    if let Some(value) = env("LXASK_SERVE").as_deref().and_then(truthy) {
-        return value;
+    setting("LXASK_SERVE", "serve").as_deref().and_then(truthy).unwrap_or(false)
+}
+
+/// Another machine's `lxask --serve --listen` to ask instead of a model here:
+/// LXASK_SERVER=host:port, or `server = host:port` in the settings.
+pub fn remote_server() -> Option<String> {
+    setting("LXASK_SERVER", "server")
+}
+
+/// the secret a remote client must send (`lxask --serve --listen` creates it)
+pub const TOKEN_FILENAME: &str = "token";
+
+pub fn token_path() -> PathBuf {
+    data_home().join(TOKEN_FILENAME)
+}
+
+/// The token for a server that listens on the network, or for asking one:
+/// LXASK_TOKEN, else `token = ...` in the settings, else the file $LXASK_HOME/token.
+pub fn token() -> Option<String> {
+    token_with_source().map(|(token, _)| token)
+}
+
+/// The token and where it was found, for saying so.
+pub fn token_with_source() -> Option<(String, String)> {
+    if let Some(token) = env("LXASK_TOKEN") {
+        return Some((token, "LXASK_TOKEN".into()));
     }
-    std::fs::read_to_string(data_home().join(SETTINGS_FILENAME))
+    let settings = data_home().join(SETTINGS_FILENAME);
+    if let Some(token) =
+        std::fs::read_to_string(&settings).ok().and_then(|text| settings_value(&text, "token")).filter(|t| !t.is_empty())
+    {
+        return Some((token, format!("`token =` in {}", settings.display())));
+    }
+    let path = token_path();
+    std::fs::read_to_string(&path)
         .ok()
-        .and_then(|text| settings_value(&text, "serve"))
-        .as_deref()
-        .and_then(truthy)
-        .unwrap_or(false)
+        .map(|text| text.trim().to_string())
+        .filter(|t| !t.is_empty())
+        .map(|token| (token, path.display().to_string()))
 }
 
 #[cfg(test)]

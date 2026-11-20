@@ -170,6 +170,9 @@ you state, and asks back when a request is too vague to answer.
 - `lxask --command-only "..."` prints just the command, for scripts.
 - `lxask --explain "tar -xzvf logs.tar.gz"` explains a command you already have, part by
   part, from the man pages and tldr, and checks it; no model is loaded, so it is instant.
+- One model for a homelab: `lxask --serve --listen 0.0.0.0:7871` on one machine, and
+  every other machine or container needs only the program, with `LXASK_SERVER` and the
+  token ([usage](docs/usage.md#one-model-for-several-machines-or-containers)).
 
 | docs | |
 |---|---|
