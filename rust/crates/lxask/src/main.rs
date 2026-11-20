@@ -44,7 +44,8 @@ options:
   --index INDEX      docs index (default: $LXASK_INDEX)
   --no-rag           answer without retrieved notes
   --no-explain       print the commands without what each part does
-  --command-only     print only the command, steps joined by &&; notes go to stderr
+  --command-only     print only the command, steps joined by &&; notes go to stderr, and a
+                     command with an unverified: or a warning: comes commented out (# )
   --shell-init SHELL print a key binding for bash, zsh or fish: type a request, press Ctrl+G, and
                      the line becomes the command (eval \"$(lxask --shell-init bash)\";
                      fish: lxask --shell-init fish | source)
