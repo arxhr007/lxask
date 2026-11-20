@@ -18,7 +18,7 @@ set -eu
 
 # LINU_*: the same settings as named up to 0.8, when lxask was called linu
 REPO=${LXASK_REPO:-${LINU_REPO:-arxhr007/lxask}}
-TAG=${LXASK_TAG:-${LINU_TAG:-v1.2.0}}  # release_files.sh checks this is the version released
+TAG=${LXASK_TAG:-${LINU_TAG:-v1.3.0}}  # release_files.sh checks this is the version released
 DATA=${LXASK_HOME:-${LINU_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/lxask}}
 BIN=${LXASK_BIN:-${LINU_BIN:-$HOME/.local/bin}}
 FROM=""
