@@ -137,9 +137,22 @@ $ wc -l data.txt                       <- the line is now the command
 ```
 
 The command waits on your prompt, to edit or run with Enter; nothing runs by itself.
-What lxask says about it (`unverified:`, `warning:`) is printed above the prompt. A
-request with several steps becomes one line joined by `&&`. When lxask asks back or
-answers about itself, your line stays as you typed it.
+What lxask says about it (`unverified:`, `warning:`) is printed above the prompt, and
+then the command comes commented out, so Enter does nothing until you have read it and
+deleted the `#`:
+
+```
+$ delete all .tmp files in this folder           <- Ctrl+G
+lxask: delete all .tmp files in this folder
+warning: deletes every file the find expression matches
+the command is commented out because of the notes above: read it, then delete the # to run it
+$ # find . -type f -name '*.tmp' -exec rm {} \;
+```
+
+(In zsh, Enter on such a line says `command not found: #` unless `setopt
+interactivecomments` is set; either way nothing runs.) A request with several steps
+becomes one line joined by `&&`. When lxask asks back or answers about itself, your line
+stays as you typed it.
 
 With `lxask --serve` running, Ctrl+G answers in about 2 seconds. To use another key,
 bind the widget yourself: `bind -x '"\C-x\C-l": __lxask_widget'` (bash),
@@ -257,7 +270,7 @@ Without a link: open an issue with the "Bad answer" template on
 | option | does |
 |---|---|
 | `--no-explain` | print only the commands |
-| `--command-only` | print only the command line (steps joined by `&&`); notes on stderr |
+| `--command-only` | print only the command line (steps joined by `&&`), commented out (`# `) when it has an `unverified:` or a `warning:`; notes on stderr |
 | `--explain COMMAND` | explain and check a command you already have, below |
 | `--shell-init bash\|zsh\|fish` | print the Ctrl+G key binding, above |
 | `--no-retry` | keep the first answer even if the checks object (faster) |
@@ -306,3 +319,6 @@ answered as usual.
 cmd=$(lxask --command-only "count the lines in data.txt")
 echo "$cmd"      # read it before you run it
 ```
+
+A command lxask could not fully check, or one that deletes or overwrites, comes out
+starting with `# `, so running it as it is does nothing.

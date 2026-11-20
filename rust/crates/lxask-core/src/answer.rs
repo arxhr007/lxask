@@ -270,8 +270,15 @@ pub fn render(steps: &[Step], explanations: bool, question: Option<&str>) -> Str
 /// The answer for a shell prompt (`lxask --command-only`, the Ctrl+G widget): the
 /// commands as one line, the steps joined by `&&`, and apart from it what the plain
 /// answer would say about them (unverified, warnings, notes), for the terminal.
+///
+/// A line with something unverified or a warning comes commented out, every line of it,
+/// so Enter at the prompt (or `eval` in a script) does nothing until the `#` is deleted.
 pub fn render_command_line(steps: &[Step], question: &str) -> (String, String) {
     let commands: Vec<&str> = steps.iter().map(|s| s.command.trim()).filter(|c| !c.is_empty()).collect();
+    let mut line = commands.join(" && ");
+    let flagged = steps.iter().any(|s| {
+        !s.command.trim().is_empty() && (!s.issues.is_empty() || !s.misses.is_empty() || !s.warnings.is_empty())
+    });
     let mut notes: Vec<String> = Vec::new();
     for (number, step) in steps.iter().enumerate() {
         let label = if steps.len() > 1 { format!("step {}: ", number + 1) } else { String::new() };
@@ -286,8 +293,16 @@ pub fn render_command_line(steps: &[Step], question: &str) -> (String, String) {
         }
     }
     notes.extend(unhandled(question, steps).into_iter().map(|text| format!("note: {text}")));
-    (commands.join(" && "), notes.join("\n"))
+    if flagged {
+        line = line.lines().map(|l| format!("# {l}")).collect::<Vec<_>>().join("\n");
+        notes.push(COMMENTED_OUT.to_string());
+    }
+    (line, notes.join("\n"))
 }
+
+/// Said after the notes when the line comes commented out.
+pub const COMMENTED_OUT: &str =
+    "the command is commented out because of the notes above: read it, then delete the # to run it";
 
 #[cfg(test)]
 mod tests {
@@ -304,8 +319,35 @@ mod tests {
         let mut second = step("stop it", "kill -TERM PID");
         second.warnings.push("sends a signal".into());
         let (line, notes) = render_command_line(&[first, second], "list processes by memory and stop the top one");
-        assert_eq!(line, "ps aux --sort=-%mem && kill -TERM PID");
-        assert_eq!(notes, "step 1: unverified: the request says without top; the command uses it\nstep 2: warning: sends a signal");
+        assert_eq!(line, "# ps aux --sort=-%mem && kill -TERM PID");
+        assert_eq!(
+            notes,
+            format!(
+                "step 1: unverified: the request says without top; the command uses it\n\
+                 step 2: warning: sends a signal\n{COMMENTED_OUT}"
+            )
+        );
+    }
+
+    #[test]
+    fn a_checked_line_comes_as_it_is() {
+        let (line, notes) = render_command_line(&[step("count the lines in data.txt", "wc -l data.txt")], "count the lines in data.txt");
+        assert_eq!(line, "wc -l data.txt");
+        assert_eq!(notes, "");
+    }
+
+    #[test]
+    fn an_unverified_or_destructive_line_is_commented_out_every_line_of_it() {
+        let mut unverified = step("find big files", "find . -size +1G -frobnicate");
+        unverified.issues.push("find: -frobnicate is not a documented option".into());
+        let (line, notes) = render_command_line(&[unverified], "find big files");
+        assert_eq!(line, "# find . -size +1G -frobnicate");
+        assert!(notes.ends_with(COMMENTED_OUT));
+
+        let mut destructive = step("delete the logs", "find . -name '*.log' \\\n  -delete");
+        destructive.warnings.push("deletes every file the find expression matches".into());
+        let (line, _) = render_command_line(&[destructive], "delete the logs");
+        assert_eq!(line, "# find . -name '*.log' \\\n#   -delete");
     }
 
     #[test]
