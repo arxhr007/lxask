@@ -21,8 +21,8 @@ use lxask_core::Error;
 use lxask_llm::{Embedder, Llm};
 
 const USAGE: &str = "usage: lxask [-h] [--about] [--explain COMMAND ...] [--bad] [--share [N]] [--shell-init SHELL] [--model MODEL] [--index INDEX] \
-[--no-rag] [--no-explain] [--command-only] [--show-context] [--no-retry] [--threads THREADS] [--serve] [--idle MINUTES] \
-[--stop] [--version] [question ...]";
+[--no-rag] [--no-explain] [--command-only] [--show-context] [--no-retry] [--threads THREADS] [--serve] [--listen HOST:PORT] \
+[--idle MINUTES] [--stop] [--version] [question ...]";
 
 const HELP: &str = "\
 Ask how to do something on Linux. Prints commands; never runs them.
@@ -56,6 +56,11 @@ options:
   --idle MINUTES     with --serve: stop after this many minutes without a question (0: never)
                      (with serve = auto in $LXASK_HOME/settings, or LXASK_SERVE=auto, the first
                      question starts the server itself)
+  --listen HOST:PORT with --serve: also answer other machines over TCP (lxask --serve --listen
+                     0.0.0.0:7871); each request needs the token in $LXASK_HOME/token, made on
+                     first use. Never stops when idle unless --idle is given. Elsewhere, with only
+                     this program installed: LXASK_SERVER=host:7871 LXASK_TOKEN=... lxask \"...\"
+                     (or server = and token = in $LXASK_HOME/settings)
   --stop             stop a running server
   --version          show program's version number and exit
 
@@ -82,7 +87,10 @@ struct Args {
     no_retry: bool,
     threads: Option<i32>,
     serve: bool,
+    /// with --serve: also answer over TCP at this host:port
+    listen: Option<String>,
     idle: f64,
+    idle_given: bool,
     stop: bool,
     /// just the command on stdout, the rest on stderr (the shell widget)
     command_only: bool,
@@ -140,8 +148,15 @@ fn parse(argv: &[String]) -> Parsed {
                 Ok(Err(v)) => return Parsed::Exit(usage_error(&format!("argument --threads: invalid int value: '{v}'"))),
                 Err(code) => return Parsed::Exit(code),
             },
+            "--listen" => match value("--listen") {
+                Ok(v) => args.listen = Some(v),
+                Err(code) => return Parsed::Exit(code),
+            },
             "--idle" => match value("--idle").map(|v| v.parse::<f64>().map_err(|_| v)) {
-                Ok(Ok(n)) => args.idle = n,
+                Ok(Ok(n)) => {
+                    args.idle = n;
+                    args.idle_given = true;
+                }
                 Ok(Err(v)) => return Parsed::Exit(usage_error(&format!("argument --idle: invalid float value: '{v}'"))),
                 Err(code) => return Parsed::Exit(code),
             },
@@ -216,6 +231,9 @@ fn main() -> ExitCode {
     if question.is_empty() && !args.serve {
         return usage_error("say what you want to do, e.g. lxask \"show disk usage of each folder\"");
     }
+    if args.listen.is_some() && !args.serve {
+        return usage_error("--listen goes with --serve, e.g. lxask --serve --listen 0.0.0.0:7871");
+    }
     // About lxask itself ("who made you?") or too vague for one command ("add a proxy"):
     // answered before loading anything.
     // With --command-only (a shell prompt) the text goes to the terminal, not the line.
@@ -230,6 +248,36 @@ fn main() -> ExitCode {
             return ExitCode::from(ASKED_BACK);
         }
     }
+
+    // Another machine's server (LXASK_SERVER), when set, answers everything: nothing
+    // but this program needs to be installed here.
+    if !args.serve && args.model.is_none() && args.index.is_none() {
+        if let Some(address) = config::remote_server() {
+            return ask_remote(&address, message(&question, &args), args.command_only);
+        }
+    }
+
+    // With --listen, take the port and the token before the slow load, so a mistake
+    // shows at once.
+    let (remote, token_source) = match args.listen.as_deref() {
+        Some(address) => {
+            let (token, source) = match server::ensure_token() {
+                Ok(found) => found,
+                Err(error) => {
+                    eprintln!("lxask: {error}");
+                    return ExitCode::from(1);
+                }
+            };
+            match std::net::TcpListener::bind(address) {
+                Ok(listener) => (Some(server::Remote { listener, token }), source),
+                Err(error) => {
+                    eprintln!("lxask: cannot listen on {address}: {error}");
+                    return ExitCode::from(1);
+                }
+            }
+        }
+        None => (None, String::new()),
+    };
 
     // A running server has the default model and index loaded; other ones are loaded here.
     // With serve = auto, a question that finds none starts one and asks it.
@@ -267,12 +315,21 @@ fn main() -> ExitCode {
     };
     let loaded = RefCell::new(loaded);
     if args.serve {
-        let idle = args.idle;
+        // a server other machines ask is not stopped by an idle spell unless told to be
+        let idle = if remote.is_some() && !args.idle_given { 0.0 } else { args.idle };
+        let network = match (&remote, args.listen.as_deref()) {
+            (Some(remote), Some(address)) => {
+                let at = remote.listener.local_addr().map(|a| a.to_string()).unwrap_or_else(|_| address.to_string());
+                format!(" and on {at} (clients need the token, from {token_source})")
+            }
+            _ => String::new(),
+        };
         let ready = |path: &Path| {
             let stops = if idle > 0.0 { format!("; stops after {} min idle", minutes(idle)) } else { String::new() };
-            eprintln!("lxask: ready, answering on {}{stops} (lxask --stop)", path.display());
+            eprintln!("lxask: ready, answering on {}{network}{stops} (lxask --stop)", path.display());
         };
-        let code = server::serve(&mut |message| loaded.borrow_mut().respond(message, &model), None, idle, &ready);
+        let code =
+            server::serve(&mut |message| loaded.borrow_mut().respond(message, &model), None, remote.as_ref(), idle, &ready);
         return ExitCode::from(code as u8);
     }
     let reply = loaded.borrow_mut().respond(&message(&question, &args), &model);
@@ -291,6 +348,10 @@ fn main() -> ExitCode {
 fn explain_command(command: &str) -> ExitCode {
     if command.trim().is_empty() {
         return usage_error("--explain takes a command, e.g. lxask --explain \"tar -xzvf logs.tar.gz\"");
+    }
+    // with LXASK_SERVER the server's index explains it, so none is needed here
+    if let Some(address) = config::remote_server() {
+        return ask_remote(&address, json!({"type": "explain", "command": command}), false);
     }
     let index = config::index_path();
     if !index.exists() {
@@ -327,6 +388,44 @@ enum Server {
     /// a server of another version is running: answer here, and do not start another
     Stale,
     Missing,
+}
+
+/// Ask the server at `address` (LXASK_SERVER) and print its reply as a local answer
+/// would be printed.
+fn ask_remote(address: &str, message: Value, command_only: bool) -> ExitCode {
+    let Some(token) = config::token() else {
+        eprintln!(
+            "lxask: LXASK_SERVER is {address}, but there is no token for it \
+             (set LXASK_TOKEN, `token =` in the settings, or {})",
+            config::token_path().display()
+        );
+        return ExitCode::from(2);
+    };
+    let reply = match server::request_remote(address, &token, message, server::ANSWER_TIMEOUT) {
+        Ok(reply) => reply,
+        Err(error) => {
+            eprintln!("lxask: {error} (LXASK_SERVER)");
+            return ExitCode::from(1);
+        }
+    };
+    if let Some(stale) = reply.get("stale") {
+        eprintln!(
+            "lxask: the server at {address} is lxask {}, this is {}; install the same version on both",
+            stale.as_str().unwrap_or("?"),
+            server::VERSION
+        );
+        return ExitCode::from(1);
+    }
+    let text = |key: &str| reply.get(key).and_then(Value::as_str).unwrap_or("").to_string();
+    let code = reply.get("code").and_then(Value::as_u64).unwrap_or(0) as u8;
+    if !text("stderr").is_empty() {
+        eprintln!("{}", text("stderr"));
+    }
+    // an empty answer is still a line, as a local one is; a refusal is only its message
+    if !text("stdout").is_empty() || (!command_only && code == 0) {
+        println!("{}", text("stdout"));
+    }
+    ExitCode::from(code)
 }
 
 /// The running server's answer, if one is running and of this version.
@@ -413,8 +512,17 @@ impl Loaded {
         )
     }
 
-    /// One question answered, as printed: the same here and in the server.
+    /// One question answered, as printed: the same here and in the server. An
+    /// "explain" request (lxask --explain through a server) is described from the index.
     fn respond(&mut self, message: &Value, model: &Path) -> Value {
+        if message.get("type").and_then(Value::as_str) == Some("explain") {
+            let command = message.get("command").and_then(Value::as_str).unwrap_or("");
+            if command.trim().is_empty() {
+                return json!({"stdout": "", "stderr": "lxask: --explain takes a command", "code": 2});
+            }
+            let described = answer::describe(command, self.catalog.as_ref());
+            return json!({"stdout": answer::render(&[described], true, None), "stderr": "", "code": 0});
+        }
         let flag = |key: &str| message.get(key).and_then(Value::as_bool).unwrap_or(true);
         let question = message.get("question").and_then(Value::as_str).unwrap_or("");
         let started = std::time::Instant::now();

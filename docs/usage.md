@@ -181,6 +181,52 @@ To start it with your session, a systemd user unit:
 ExecStart=%h/.local/bin/lxask --serve --idle 0
 ```
 
+## One model for several machines or containers
+
+Install lxask fully on one machine and let it answer the others over the network; each
+of them needs only the `lxask` program (about 9 MB), no model and no index.
+
+On the machine with the model:
+
+```sh
+lxask --serve --listen 0.0.0.0:7871
+# lxask: ready, answering on ... and on 0.0.0.0:7871 (clients need the token, from ~/.local/share/lxask/token)
+```
+
+The first `--listen` makes a random token in `~/.local/share/lxask/token`, readable by
+your user only (or set your own with `LXASK_TOKEN`). Every request from the network must
+carry it. A server that listens never stops when idle, unless `--idle` is given; stop it
+on that machine with `lxask --stop` (it cannot be stopped over the network).
+
+On each other machine or container, with only the program installed:
+
+```sh
+export LXASK_SERVER=192.168.1.10:7871
+export LXASK_TOKEN=<the token>
+lxask "show disk usage of each folder here"
+```
+
+or once, in `~/.local/share/lxask/settings`:
+
+```
+server = 192.168.1.10:7871
+token = <the token>
+```
+
+Questions, Ctrl+G and `--explain` all go to the server and come back exactly as a local
+install would print them. The token is sent in the clear, like the questions and
+answers, so keep the port on a network you trust (a LAN, a VPN such as WireGuard, or an
+SSH tunnel), and do not expose it to the internet. Both ends must run the same lxask
+version.
+
+A systemd unit for it:
+
+```ini
+# ~/.config/systemd/user/lxask.service, then: systemctl --user enable --now lxask
+[Service]
+ExecStart=%h/.local/bin/lxask --serve --listen 0.0.0.0:7871
+```
+
 ## When an answer is wrong
 
 ```sh
@@ -221,6 +267,7 @@ Without a link: open an issue with the "Bad answer" template on
 | `--model FILE` | another model (answers without the adapter) |
 | `--index FILE` | another documentation index |
 | `--serve`, `--idle MIN`, `--stop` | the server, above |
+| `--listen HOST:PORT` | with `--serve`: answer other machines too, above |
 | `--bad [NOTE]` | report the last answer |
 | `--share [N]` | the last N reports and a link to send them as a GitHub issue |
 | `--about` | who made lxask, and its links |
