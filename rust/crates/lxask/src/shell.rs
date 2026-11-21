@@ -25,7 +25,7 @@ __lxask_widget() {
     local request=$BUFFER command
     [[ -n ${request//[[:space:]]/} ]] || return
     zle -I
-    print -u2 -- $'\e[2mlxask: '"$request"$'\e[0m'
+    print -ru2 -- $'\e[2mlxask: '"$request"$'\e[0m'
     command=$(lxask --command-only -- "$request")
     if [[ -n $command ]]; then
         BUFFER=$command
