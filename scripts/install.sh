@@ -41,6 +41,15 @@ say() { printf '%s\n' "lxask install: $*"; }
 die() { printf '%s\n' "lxask install: $*" >&2; exit 1; }
 
 command -v sha256sum >/dev/null 2>&1 || die "sha256sum not found (coreutils)"
+# Two files with the same contents. cmp is in diffutils, which minimal systems lack.
+same() {
+    [ -f "$1" ] && [ -f "$2" ] || return 1
+    if command -v cmp >/dev/null 2>&1; then
+        cmp -s "$1" "$2"
+    else
+        [ "$(sha256sum < "$1")" = "$(sha256sum < "$2")" ]
+    fi
+}
 
 # Which build of the program this machine runs.
 case $(uname -s)/$(uname -m) in
@@ -203,14 +212,14 @@ chmod 755 "$STAGE/$PROGRAM"
 
 # The previous files stay beside the new ones as *.previous, for going back.
 for name in embed.gguf docs.sqlite; do
-    if [ -f "$DATA/$name" ] && [ ! -L "$DATA/$name" ] && ! cmp -s "$DATA/$name" "$STAGE/$name"; then
+    if [ -f "$DATA/$name" ] && [ ! -L "$DATA/$name" ] && ! same "$DATA/$name" "$STAGE/$name"; then
         mv "$DATA/$name" "$DATA/$name.previous"
     fi
     mv "$STAGE/$name" "$DATA/$name"
 done
 mv "$STAGE/$MODEL" "$DATA/models/$MODEL"
 PREVIOUS=$(readlink -f "$DATA/model.gguf" 2>/dev/null || true)
-if [ -n "$PREVIOUS" ] && [ "$PREVIOUS" != "$(readlink -f "$DATA/models/$MODEL")" ] && cmp -s "$PREVIOUS" "$DATA/models/$MODEL"; then
+if [ -n "$PREVIOUS" ] && [ "$PREVIOUS" != "$(readlink -f "$DATA/models/$MODEL")" ] && same "$PREVIOUS" "$DATA/models/$MODEL"; then
     rm -f "$PREVIOUS"  # the same model under its old name (linu-*.gguf): no second copy
 elif [ -L "$DATA/model.gguf" ] && [ "$PREVIOUS" != "$(readlink -f "$DATA/models/$MODEL")" ]; then
     ln -sfn "$PREVIOUS" "$DATA/model.gguf.previous"
