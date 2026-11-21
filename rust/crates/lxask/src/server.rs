@@ -70,20 +70,29 @@ fn receive(stream: &mut impl Read, limit: Option<usize>) -> std::io::Result<Valu
     serde_json::from_slice(&data).map_err(|e| std::io::Error::new(ErrorKind::InvalidData, e))
 }
 
-/// The server's reply to `message`, or None when no server is running (a socket left
-/// behind by one that died is removed).
-pub fn request(message: Value, path: Option<&Path>, timeout: Duration) -> Option<Value> {
+/// Why a request to the local server got no reply.
+#[derive(Debug, PartialEq)]
+pub enum Failure {
+    /// none is running (a socket left behind by one that died is removed)
+    NoServer,
+    /// one is there but did not answer: hung, busy past the timeout, or not ours
+    Broken(String),
+}
+
+/// The server's reply to `message`.
+pub fn request(message: Value, path: Option<&Path>, timeout: Duration) -> Result<Value, Failure> {
     let path = path.map(Path::to_path_buf).unwrap_or_else(socket_path);
     if !path.exists() {
-        return None;
+        return Err(Failure::NoServer);
     }
     let mut stream = match UnixStream::connect(&path) {
         Ok(stream) => stream,
         Err(error) if error.kind() == ErrorKind::ConnectionRefused => {
             let _ = fs::remove_file(&path);
-            return None;
+            return Err(Failure::NoServer);
         }
-        Err(_) => return None,
+        Err(error) if error.kind() == ErrorKind::NotFound => return Err(Failure::NoServer),
+        Err(error) => return Err(Failure::Broken(format!("cannot connect to {}: {error}", path.display()))),
     };
     let _ = stream.set_write_timeout(Some(CONNECT_TIMEOUT));
     let _ = stream.set_read_timeout(Some(timeout));
@@ -92,8 +101,21 @@ pub fn request(message: Value, path: Option<&Path>, timeout: Duration) -> Option
         _ => Map::new(),
     };
     message.insert("version".into(), Value::from(VERSION));
-    send(&mut stream, &Value::Object(message)).ok()?;
-    receive(&mut stream, None).ok()
+    let why = |error: std::io::Error| {
+        Failure::Broken(match error.kind() {
+            ErrorKind::WouldBlock | ErrorKind::TimedOut => {
+                let seconds = timeout.as_secs_f64();
+                format!("no answer within {} s", if seconds.fract() == 0.0 { format!("{seconds:.0}") } else { format!("{seconds}") })
+            }
+            // closed before the request was read (a server of another user), or before replying
+            ErrorKind::InvalidData | ErrorKind::ConnectionReset | ErrorKind::UnexpectedEof | ErrorKind::BrokenPipe => {
+                "it closed the connection without a reply".to_string()
+            }
+            _ => error.to_string(),
+        })
+    };
+    send(&mut stream, &Value::Object(message)).map_err(why)?;
+    receive(&mut stream, None).map_err(why)
 }
 
 /// The reply of the server listening at `address` (host:port) to `message`, sent with
@@ -166,7 +188,7 @@ const STARTING_LOCK: &str = "starting.lock";
 pub const START_TIMEOUT: Duration = Duration::from_secs(120);
 
 fn running(path: &Path) -> bool {
-    request(json!({"type": "ping"}), Some(path), CONNECT_TIMEOUT).is_some()
+    request(json!({"type": "ping"}), Some(path), CONNECT_TIMEOUT).is_ok()
 }
 
 /// Make sure a server is answering on the socket, starting `lxask --serve` in the
@@ -308,7 +330,7 @@ pub fn serve(
     ready: &dyn Fn(&Path),
 ) -> i32 {
     let path = path.map(Path::to_path_buf).unwrap_or_else(socket_path);
-    if request(json!({"type": "ping"}), Some(&path), CONNECT_TIMEOUT).is_some() {
+    if request(json!({"type": "ping"}), Some(&path), CONNECT_TIMEOUT).is_ok() {
         eprintln!("lxask: a server is already running ({})", path.display());
         return 1;
     }
@@ -382,6 +404,10 @@ fn handle(stream: &mut (impl Read + Write), respond: &mut dyn FnMut(&Value) -> V
             let _ = send(stream, &error_reply("lxask: the server refused the token (LXASK_TOKEN)".into(), 2));
             return true;
         }
+        // another machine's question: its `lxask --bad` reports it there, not here
+        if let Some(map) = message.as_object_mut() {
+            map.insert("network".into(), Value::Bool(true));
+        }
     }
     let kind = message.get("type").and_then(Value::as_str).unwrap_or("");
     let (reply, keep_going) = match kind {
@@ -411,7 +437,7 @@ mod tests {
         if question == "fail" {
             panic!("boom");
         }
-        json!({"stdout": format!("$ echo {question}"), "stderr": "", "code": 0})
+        json!({"stdout": format!("$ echo {question}"), "stderr": "", "code": 0, "network": message["network"]})
     }
 
     /// A server on a fresh socket in a thread; returns its path once it is ready.
@@ -457,7 +483,30 @@ mod tests {
     }
 
     fn ask(path: &Path, question: &str) -> Option<Value> {
-        request(json!({"type": "ask", "question": question}), Some(path), Duration::from_secs(10))
+        request(json!({"type": "ask", "question": question}), Some(path), Duration::from_secs(10)).ok()
+    }
+
+    #[test]
+    fn a_server_that_does_not_answer_is_told_apart_from_none() {
+        let _serial = serial();
+        let dir = std::env::temp_dir().join(format!("lxask-test-hung-{}", rand_suffix()));
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join(SOCKET);
+        let listener = UnixListener::bind(&path).unwrap(); // connections wait, nobody replies
+        let hung = request(json!({"type": "ask", "question": "q"}), Some(&path), Duration::from_millis(300));
+        assert_eq!(hung, Err(Failure::Broken("no answer within 0.3 s".into())));
+        // one that takes the connection and closes it without a word (the first one
+        // accepted is the request above, still queued)
+        let closer = std::thread::spawn(move || {
+            for _ in 0..2 {
+                drop(listener.accept());
+            }
+        });
+        let closed = request(json!({"type": "ask", "question": "q"}), Some(&path), Duration::from_secs(5));
+        closer.join().unwrap();
+        assert_eq!(closed, Err(Failure::Broken("it closed the connection without a reply".into())));
+        assert!(path.exists(), "a live socket is not removed");
+        let _ = fs::remove_dir_all(dir);
     }
 
     #[test]
@@ -486,7 +535,7 @@ mod tests {
         let mut stream = UnixStream::connect(&path).unwrap();
         send(&mut stream, &json!({"type": "ask", "question": "q", "version": "0.0.1"})).unwrap();
         assert_eq!(receive(&mut stream, None).unwrap()["stale"], VERSION);
-        request(json!({"type": "stop"}), Some(&path), Duration::from_secs(10));
+        let _ = request(json!({"type": "stop"}), Some(&path), Duration::from_secs(10));
         handle.join().unwrap();
     }
 
@@ -508,8 +557,11 @@ mod tests {
         let (path, address, token, handle) = start_remote();
         let wait = Duration::from_secs(10);
         let ask = |question: &str| json!({"type": "ask", "question": question});
-        // the token answers, over the network
-        assert_eq!(request_remote(&address, &token, ask("hi"), wait).unwrap()["stdout"], "$ echo hi");
+        // the token answers, over the network, and the request is marked as from there
+        let reply = request_remote(&address, &token, ask("hi"), wait).unwrap();
+        assert_eq!((reply["stdout"].as_str(), reply["network"].as_bool()), (Some("$ echo hi"), Some(true)));
+        // the local socket's requests are not
+        assert!(request(ask("local"), Some(&path), wait).unwrap()["network"].is_null());
         // a wrong token, or none, is refused and the server goes on
         let refused = request_remote(&address, "0123456789abcdeX", ask("hi"), wait).unwrap();
         assert_eq!((refused["code"].as_i64(), refused["stdout"].as_str()), (Some(2), Some("")));

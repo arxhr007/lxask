@@ -44,7 +44,8 @@ pub fn local_time() -> String {
     }
 }
 
-fn file_name(model: &Path) -> String {
+/// The model file's name, through a symlink (model.gguf -> lxask-round4-Q4_K_M.gguf).
+pub fn file_name(model: &Path) -> String {
     let resolved = fs::canonicalize(model).unwrap_or_else(|_| model.to_path_buf());
     resolved.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()
 }
@@ -178,10 +179,13 @@ pub fn share(n: usize, home: Option<&Path>) -> String {
     };
     let mut url = issue_url(&title, &body);
     let mut body = body;
-    if url.len() > URL_MAX {
-        // a single report too long for a link: shorten its text, the rest stays readable here
-        let cut: String = body.chars().take(URL_MAX / 4).collect();
-        body = format!("{cut}\n\n(cut short to fit in a link)");
+    // A single report too long for a link: its text is shortened until the link fits (a
+    // character outside ASCII takes up to 12 in it), the rest stays readable here.
+    let whole: Vec<char> = body.chars().collect();
+    let mut keep = whole.len();
+    while url.len() > URL_MAX && keep > 0 {
+        keep = keep * 3 / 4;
+        body = format!("{}\n\n(cut short to fit in a link)", whole[..keep].iter().collect::<String>());
         url = issue_url(&title, &body);
     }
     let left_out = wanted - chosen.len();
@@ -267,6 +271,18 @@ mod tests {
         let out = share(4, Some(&home));
         assert!(out.lines().last().unwrap().len() <= URL_MAX);
         assert!(out.contains("left out to keep the link short"));
+        let _ = fs::remove_dir_all(home);
+    }
+
+    #[test]
+    fn one_long_report_outside_ascii_still_fits_the_link() {
+        let home = home();
+        // each of these takes 9 characters in the link, so cutting at a fixed length is not enough
+        reported(&home, &"ファイルを探す".repeat(400), "find . -name x", "");
+        let out = share(1, Some(&home));
+        let url = out.lines().last().unwrap();
+        assert!(url.len() <= URL_MAX, "{}", url.len());
+        assert!(out.contains("(cut short to fit in a link)"));
         let _ = fs::remove_dir_all(home);
     }
 }
