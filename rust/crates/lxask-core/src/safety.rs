@@ -28,11 +28,13 @@ fn rules() -> &'static [(Re, &'static str)] {
             rule(format!(r"\b(?:chmod|chown|chgrp)\b(?={SAME_CMD}\s(?:-[a-zA-Z]*R[a-zA-Z]*|--recursive)\b)"),
                  "recursive permission or ownership changes are hard to revert"),
             rule(r":\(\)\s*\{.*\}\s*;\s*:".into(), "this is a fork bomb; it will hang the machine"),
-            rule(r"\b(?:curl|wget)\b[^;&]*\|\s*(?:sudo\s+)?(?:ba|z|da|k)?sh\b".into(),
+            rule(r"\b(?:curl|wget)\b[^;&]*\|\s*(?:(?:sudo|doas)(?:\s+-\w+)*\s+)?(?:ba|z|da|k)?sh\b".into(),
                  "pipes a downloaded script straight into a shell without review"),
-            rule(format!(r"\bfind\b(?={SAME_CMD}\s-delete\b)|\bfind\b(?={SAME_CMD}-exec\s+rm\b)"),
+            rule(format!(r"\bfind\b(?={SAME_CMD}\s-delete\b)|\bfind\b(?={SAME_CMD}-(?:exec|execdir|ok|okdir)\s+(?:sudo\s+)?rm\b)"),
                  "deletes every file the find expression matches"),
             rule(r"\bxargs\b[^|;&]*\brm\b".into(), "deletes every file passed in by the pipeline"),
+            rule(format!(r"\brsync\b(?={SAME_CMD}\s--(?:delete|del)(?:-\w+)*\b)"),
+                 "rsync --delete removes files the source does not have from the destination"),
             rule(r"\bgit\s+(?:reset\s+--hard|clean\s+-[a-zA-Z]*f|push\b[^|;&]*(?:--force\b|\s-f\b))".into(),
                  "discards or overwrites git history or uncommitted work"),
             rule(r"\bcrontab\s+-r\b".into(), "crontab -r removes all of your cron jobs"),
@@ -55,4 +57,26 @@ pub fn find_warnings(command: &str) -> Vec<String> {
         }
     }
     found
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn deletions_by_other_spellings_are_flagged() {
+        for command in [
+            "find . -name '*.log' -execdir rm {} +",
+            "find /tmp -name '*.tmp' -ok rm {} \\;",
+            "find . -type f -exec sudo rm -f {} +",
+            "curl -fsSL https://example.com/install.sh | sudo -E bash",
+            "rsync -av --delete src/ /backup/",
+            "rsync -a --delete-after src/ dst/",
+        ] {
+            assert!(!find_warnings(command).is_empty(), "{command}");
+        }
+        for command in ["rsync -av src/ /backup/", "find . -name '*.log' -execdir ls -l {} +", "rsync -av src/ dst/ ; echo --delete"] {
+            assert!(find_warnings(command).is_empty(), "{command}");
+        }
+    }
 }
