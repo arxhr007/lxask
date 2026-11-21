@@ -80,7 +80,8 @@ if [ -z "${LXASK_HOME:-${LINU_HOME:-}}" ] && [ ! -e "$DATA" ] && [ -d "$OLD" ] &
 fi
 mkdir -p "$DATA/models"
 STAGE=$(mktemp -d "$DATA/.download.XXXXXX")
-trap 'rm -rf "$STAGE"' EXIT INT TERM
+trap 'rm -rf "$STAGE"' EXIT
+trap 'exit 130' INT TERM  # through the EXIT trap; a bare cleanup trap would carry on
 
 http_get() {  # http_get URL OUT
     if command -v curl >/dev/null 2>&1; then
@@ -240,6 +241,10 @@ if [ -e "$BIN/lxask" ] || [ -L "$BIN/lxask" ]; then
 fi
 mv "$STAGE/$PROGRAM" "$BIN/lxask"
 say "installed lxask ($PROGRAM) and $MODEL${ADAPTER:+ with its adapters $ADAPTER}; the command is $BIN/lxask"
+# A server the old lxask started holds the old model and answers no newer program:
+# stopped, so the next question starts one of this version (any version obeys a stop).
+LXASK_HOME="$DATA" timeout 30 "$BIN/lxask" --stop 2>&1 | grep -q 'server stopped' \
+    && say "stopped the lxask server the old version had running"
 if [ -e "$BIN/linu" ] && [ ! -L "$BIN/linu" ]; then
     mv -f "$BIN/linu" "$DATA/linu.previous"
     ln -s lxask "$BIN/linu"
@@ -286,6 +291,7 @@ esac
 
 if [ "$TEST" = 1 ]; then
     say "trying it once:"
-    LXASK_HOME="$DATA" LXASK_SERVE=off "$BIN/lxask" --no-explain "find files bigger than 1GB in my home folder" 2>/dev/null \
-        || die "lxask did not run; see the output above"
+    # its notes on stderr only matter when it fails
+    LXASK_HOME="$DATA" LXASK_SERVE=off "$BIN/lxask" --no-explain "find files bigger than 1GB in my home folder" 2>"$STAGE/try.err" \
+        || { cat "$STAGE/try.err" >&2; die "lxask did not run; see the output above"; }
 fi
