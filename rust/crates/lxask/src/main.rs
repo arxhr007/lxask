@@ -225,9 +225,20 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
     if args.stop {
-        let stopped = server::request(json!({"type": "stop"}), None, server::ANSWER_TIMEOUT).is_some();
-        eprintln!("{}", if stopped { "lxask: server stopped" } else { "lxask: no server is running" });
-        return ExitCode::SUCCESS;
+        return match server::request(json!({"type": "stop"}), None, server::ANSWER_TIMEOUT) {
+            Ok(_) => {
+                eprintln!("lxask: server stopped");
+                ExitCode::SUCCESS
+            }
+            Err(server::Failure::NoServer) => {
+                eprintln!("lxask: no server is running");
+                ExitCode::SUCCESS
+            }
+            Err(server::Failure::Broken(reason)) => {
+                eprintln!("lxask: the running server did not answer ({reason}); it may be busy with a question");
+                ExitCode::from(1)
+            }
+        };
     }
     if question.is_empty() && !args.serve {
         return usage_error("say what you want to do, e.g. lxask \"show disk usage of each folder\"");
@@ -282,12 +293,15 @@ fn main() -> ExitCode {
 
     // A running server has the default model and index loaded; other ones are loaded here.
     // With serve = auto, a question that finds none starts one and asks it.
+    let mut broken = None;
     if !args.serve && args.model.is_none() && args.index.is_none() && args.threads.is_none() {
         let mut found = ask_server(&question, &args);
         if matches!(found, Server::Missing) && config::serve_auto() && server::start_and_wait(server::START_TIMEOUT) {
             found = ask_server(&question, &args);
         }
-        if let Server::Answered(reply) = found {
+        if let Server::Broken(reason) = found {
+            broken = Some(reason);
+        } else if let Server::Answered(reply) = found {
             let text = |key: &str| reply.get(key).and_then(Value::as_str).unwrap_or("").to_string();
             if !text("stderr").is_empty() {
                 eprintln!("{}", text("stderr"));
@@ -301,8 +315,17 @@ fn main() -> ExitCode {
 
     let model = args.model.clone().unwrap_or_else(config::model_path);
     if !model.exists() {
-        eprintln!("lxask: model not found at {} (set LXASK_MODEL or pass --model)", model.display());
+        match &broken {
+            Some(reason) => eprintln!(
+                "lxask: the running server did not answer ({reason}), and there is no model at {} to answer here",
+                model.display()
+            ),
+            None => eprintln!("lxask: model not found at {} (set LXASK_MODEL or pass --model)", model.display()),
+        }
         return ExitCode::from(2);
+    }
+    if let Some(reason) = &broken {
+        eprintln!("lxask: the running server did not answer ({reason}); answering here");
     }
     // the adapters are made for the installed model, not for one passed with --model
     let (restrict, precision) =
@@ -389,6 +412,8 @@ enum Server {
     /// a server of another version is running: answer here, and do not start another
     Stale,
     Missing,
+    /// one is there and did not answer (why, for the user): answer here instead
+    Broken(String),
 }
 
 /// Ask the server at `address` (LXASK_SERVER) and print its reply as a local answer
@@ -402,6 +427,8 @@ fn ask_remote(address: &str, message: Value, command_only: bool) -> ExitCode {
         );
         return ExitCode::from(2);
     };
+    let message_question =
+        (message.get("type").and_then(Value::as_str) == Some("ask")).then(|| message["question"].as_str().unwrap_or("").to_string());
     let reply = match server::request_remote(address, &token, message, server::ANSWER_TIMEOUT) {
         Ok(reply) => reply,
         Err(error) => {
@@ -419,6 +446,19 @@ fn ask_remote(address: &str, message: Value, command_only: bool) -> ExitCode {
     }
     let text = |key: &str| reply.get(key).and_then(Value::as_str).unwrap_or("").to_string();
     let code = reply.get("code").and_then(Value::as_u64).unwrap_or(0) as u8;
+    // kept here, so `lxask --bad` on this machine reports this answer
+    if let (Some(question), Some(steps)) =
+        (message_question.as_deref(), reply.get("steps").and_then(Value::as_array))
+    {
+        let steps: Vec<Step> = steps
+            .iter()
+            .map(|s| Step {
+                command: s.get("command").and_then(Value::as_str).unwrap_or("").to_string(),
+                ..Step::new(s.get("task").and_then(Value::as_str).unwrap_or(""))
+            })
+            .collect();
+        feedback::remember(question, &steps, Path::new(&text("model")), None);
+    }
     if !text("stderr").is_empty() {
         eprintln!("{}", text("stderr"));
     }
@@ -431,8 +471,10 @@ fn ask_remote(address: &str, message: Value, command_only: bool) -> ExitCode {
 
 /// The running server's answer, if one is running and of this version.
 fn ask_server(question: &str, args: &Args) -> Server {
-    let Some(reply) = server::request(message(question, args), None, server::ANSWER_TIMEOUT) else {
-        return Server::Missing;
+    let reply = match server::request(message(question, args), None, server::ANSWER_TIMEOUT) {
+        Ok(reply) => reply,
+        Err(server::Failure::NoServer) => return Server::Missing,
+        Err(server::Failure::Broken(reason)) => return Server::Broken(reason),
     };
     if let Some(stale) = reply.get("stale") {
         eprintln!(
@@ -550,8 +592,14 @@ impl Loaded {
         } else {
             answer::render(&steps, flag("explain"), Some(question))
         };
-        feedback::remember(question, &steps, model, None);
-        json!({"stdout": stdout, "stderr": stderr, "code": 0})
+        // A question from another machine (lxask --serve --listen) is remembered there, from
+        // the steps in the reply, so that its `lxask --bad` reports it and this one's does not.
+        if message.get("network").and_then(Value::as_bool) != Some(true) {
+            feedback::remember(question, &steps, model, None);
+        }
+        let asked: Vec<Value> = steps.iter().map(|s| json!({"task": s.task, "command": s.command})).collect();
+        json!({"stdout": stdout, "stderr": stderr, "code": 0, "steps": asked,
+               "model": feedback::file_name(model)})
     }
 }
 

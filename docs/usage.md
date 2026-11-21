@@ -137,7 +137,8 @@ $ wc -l data.txt                       <- the line is now the command
 ```
 
 The command waits on your prompt, to edit or run with Enter; nothing runs by itself.
-What lxask says about it (`unverified:`, `warning:`) is printed above the prompt, and
+What lxask says about it (`unverified:`, `warning:`, a step it had no command for, a
+`note:` that the request names something no command has) is printed above the prompt, and
 then the command comes commented out, so Enter does nothing until you have read it and
 deleted the `#`:
 
@@ -270,7 +271,7 @@ Without a link: open an issue with the "Bad answer" template on
 | option | does |
 |---|---|
 | `--no-explain` | print only the commands |
-| `--command-only` | print only the command line (steps joined by `&&`), commented out (`# `) when it has an `unverified:` or a `warning:`; notes on stderr |
+| `--command-only` | print only the command line (steps joined by `&&`), commented out (`# `) when it has an `unverified:`, a `warning:`, a `note:` or a step with no command; notes on stderr |
 | `--explain COMMAND` | explain and check a command you already have, below |
 | `--shell-init bash\|zsh\|fish` | print the Ctrl+G key binding, above |
 | `--no-retry` | keep the first answer even if the checks object (faster) |
