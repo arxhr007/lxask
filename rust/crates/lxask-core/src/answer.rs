@@ -9,7 +9,8 @@
 use crate::constraints;
 use crate::explain::{self, explain, Described};
 use crate::prompt::{build_messages, parse_answer, Doc, Message};
-use crate::py;
+use crate::py::{self, LazyRe};
+use crate::re;
 use crate::safety::find_warnings;
 use crate::split::tasks_for;
 use crate::validate::{check, Catalog};
@@ -209,17 +210,36 @@ pub fn describe(command: &str, catalog: Option<&Catalog>) -> Step {
     step
 }
 
-/// `$ ` before each command line, continuation lines aligned under it.
+// `<<EOF`, `<<-'EOF'`, `<< "END"`: a here-document starts on the next line (not `<<<`,
+// a here-string). Group 1 is `-` when leading tabs are stripped from its lines.
+static HEREDOC: LazyRe = re!(r#"(?<!<)<<(?!<)(-?)\s*(?:'([^']+)'|"([^"]+)"|\\?([A-Za-z_][A-Za-z0-9_]*))"#);
+
+/// `$ ` before each command line, continuation lines aligned under it. The lines of a
+/// here-document are its data, so they are aligned under the command too, as written.
 pub fn render_command(command: &str) -> Vec<String> {
     let mut lines = Vec::new();
     let mut continued = false;
+    // the delimiters of the here-documents still open, in order, and whether tabs go
+    let mut heredocs: std::collections::VecDeque<(String, bool)> = std::collections::VecDeque::new();
     for line in py::splitlines(command) {
+        if let Some((delimiter, tabs)) = heredocs.front() {
+            let body = if *tabs { line.trim_start_matches('\t') } else { line };
+            if body == delimiter {
+                heredocs.pop_front();
+            }
+            lines.push(format!("  {}", py::rstrip(line)).trim_end().to_string());
+            continue;
+        }
         if py::strip(line).is_empty() {
             continue;
         }
         let prefix = if continued || line.starts_with([' ', '\t']) { "  " } else { "$ " };
         lines.push(format!("{prefix}{}", py::rstrip(line)));
         continued = py::rstrip(line).ends_with('\\');
+        for caps in HEREDOC.finditer(line) {
+            let delimiter = (2..=4).find_map(|i| py::group(&caps, i)).unwrap_or("");
+            heredocs.push_back((delimiter.to_string(), py::group_or_empty(&caps, 1) == "-"));
+        }
     }
     lines
 }
@@ -276,9 +296,14 @@ pub fn render(steps: &[Step], explanations: bool, question: Option<&str>) -> Str
 pub fn render_command_line(steps: &[Step], question: &str) -> (String, String) {
     let commands: Vec<&str> = steps.iter().map(|s| s.command.trim()).filter(|c| !c.is_empty()).collect();
     let mut line = commands.join(" && ");
-    let flagged = steps.iter().any(|s| {
-        !s.command.trim().is_empty() && (!s.issues.is_empty() || !s.misses.is_empty() || !s.warnings.is_empty())
-    });
+    let unhandled = unhandled(question, steps);
+    // A step with no command leaves the line doing only part of what was asked ("back up
+    // the configs, then delete them" without the backup), and a request literal no command
+    // keeps means it acts on the wrong files: both are read before they are run.
+    let flagged = !commands.is_empty()
+        && (steps.iter().any(|s| {
+            s.command.trim().is_empty() || !s.issues.is_empty() || !s.misses.is_empty() || !s.warnings.is_empty()
+        }) || !unhandled.is_empty());
     let mut notes: Vec<String> = Vec::new();
     for (number, step) in steps.iter().enumerate() {
         let label = if steps.len() > 1 { format!("step {}: ", number + 1) } else { String::new() };
@@ -292,7 +317,7 @@ pub fn render_command_line(steps: &[Step], question: &str) -> (String, String) {
             notes.push(format!("{label}warning: {reason}"));
         }
     }
-    notes.extend(unhandled(question, steps).into_iter().map(|text| format!("note: {text}")));
+    notes.extend(unhandled.into_iter().map(|text| format!("note: {text}")));
     if flagged {
         line = line.lines().map(|l| format!("# {l}")).collect::<Vec<_>>().join("\n");
         notes.push(COMMENTED_OUT.to_string());
@@ -327,6 +352,17 @@ mod tests {
                  step 2: warning: sends a signal\n{COMMENTED_OUT}"
             )
         );
+    }
+
+    #[test]
+    fn a_here_document_is_shown_as_data_not_as_commands() {
+        assert_eq!(
+            render_command("cat > notes.txt <<'EOF'\nhello\n\nworld\nEOF\nwc -l notes.txt"),
+            vec!["$ cat > notes.txt <<'EOF'", "  hello", "", "  world", "  EOF", "$ wc -l notes.txt"]
+        );
+        // <<- strips leading tabs from the delimiter line; <<< is a here-string, no body
+        assert_eq!(render_command("cat <<-END\n\tx\n\tEND\nls"), vec!["$ cat <<-END", "  \tx", "  \tEND", "$ ls"]);
+        assert_eq!(render_command("grep x <<< \"$v\"\nls"), vec!["$ grep x <<< \"$v\"", "$ ls"]);
     }
 
     #[test]
@@ -389,7 +425,19 @@ mod tests {
     #[test]
     fn a_step_without_a_command_is_left_out_of_the_line_and_said() {
         let (line, notes) = render_command_line(&[step("show the date", "date"), step("do magic", "")], "date and magic");
-        assert_eq!(line, "date");
-        assert_eq!(notes, "step 2: could not produce a command for: do magic");
+        assert_eq!(line, "# date");
+        assert_eq!(notes, format!("step 2: could not produce a command for: do magic\n{COMMENTED_OUT}"));
+        // no command at all: nothing to comment out, the line stays empty
+        let (line, notes) = render_command_line(&[step("do magic", "")], "do magic");
+        assert_eq!((line.as_str(), notes.as_str()), ("", "could not produce a command for: do magic"));
+    }
+
+    #[test]
+    fn a_line_that_loses_what_the_request_names_is_commented_out() {
+        // the split kept ".log" in no step's command, so the line acts on other files
+        let steps = [step("find the files", "find . -type f"), step("count them", "wc -l")];
+        let (line, notes) = render_command_line(&steps, "find the .log files and count them");
+        assert!(line.starts_with("# "), "{line}");
+        assert!(notes.contains("note: ") && notes.ends_with(COMMENTED_OUT), "{notes}");
     }
 }
