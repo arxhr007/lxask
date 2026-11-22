@@ -5,9 +5,12 @@
 #   sh install.sh --from DIR      # offline: the release files already copied into DIR
 #   sh install.sh --serve | --no-serve   # answer the "keep lxask loaded?" question
 #   sh install.sh --skip-memory-check   # install with under 1.3 GB of memory anyway
+#   sh install.sh --program FILE  # a program you built (cargo build), not the release's
 #
 # lxask is one program (Linux on x86_64 or ARM64, glibc 2.28 or newer: Debian 10, Ubuntu
-# 18.10, RHEL 8 and later); nothing else is installed. Downloading uses gh when it is
+# 18.10, RHEL 8 and later); nothing else is installed. Releases have no macOS program:
+# on a Mac, build it and pass --program; the model and the rest come from the release.
+# Downloading uses gh when it is
 # logged in, else curl or wget (a private repository needs gh, or GH_TOKEN with python3).
 #
 # Puts the model, its adapters (restrict-* and precision-*, if the release has them),
@@ -23,6 +26,7 @@ TAG=${LXASK_TAG:-${LINU_TAG:-v1.5.3}}  # release_files.sh checks this is the ver
 DATA=${LXASK_HOME:-${LINU_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/lxask}}
 BIN=${LXASK_BIN:-${LINU_BIN:-$HOME/.local/bin}}
 FROM=""
+LOCAL=""  # --program: a program built here, used instead of the release's
 TEST=1
 SERVE=""  # auto or off: from --serve / --no-serve, else asked
 MEMCHECK=1
@@ -31,11 +35,12 @@ while [ $# -gt 0 ]; do
     case $1 in
         --from) FROM=$2; shift 2 ;;
         --tag) TAG=$2; shift 2 ;;
+        --program) LOCAL=$2; shift 2 ;;
         --no-test) TEST=0; shift ;;
         --skip-memory-check) MEMCHECK=0; shift ;;
         --serve) SERVE=auto; shift ;;
         --no-serve) SERVE=off; shift ;;
-        -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
         *) echo "install.sh: unknown argument $1" >&2; exit 2 ;;
     esac
 done
@@ -43,19 +48,46 @@ done
 say() { printf '%s\n' "lxask install: $*"; }
 die() { printf '%s\n' "lxask install: $*" >&2; exit 1; }
 
-command -v sha256sum >/dev/null 2>&1 || die "sha256sum not found (coreutils)"
+# sha256sum is coreutils; macOS has shasum instead, which takes the same file and flags.
+if command -v sha256sum >/dev/null 2>&1; then
+    sha256() { sha256sum "$@"; }
+elif command -v shasum >/dev/null 2>&1; then
+    sha256() { shasum -a 256 "$@"; }
+else
+    die "sha256sum not found (coreutils)"
+fi
 # Two files with the same contents. cmp is in diffutils, which minimal systems lack.
 same() {
     [ -f "$1" ] && [ -f "$2" ] || return 1
     if command -v cmp >/dev/null 2>&1; then
         cmp -s "$1" "$2"
     else
-        [ "$(sha256sum < "$1")" = "$(sha256sum < "$2")" ]
+        [ "$(sha256 < "$1")" = "$(sha256 < "$2")" ]
+    fi
+}
+# timeout is coreutils too; without it the old server is stopped without a time limit.
+with_timeout() {  # with_timeout SECONDS COMMAND...
+    if command -v timeout >/dev/null 2>&1; then
+        timeout "$@"
+    else
+        shift
+        "$@"
     fi
 }
 
+if [ -n "$LOCAL" ]; then
+    [ -f "$LOCAL" ] || die "--program $LOCAL: no such file"
+    "$LOCAL" --version >/dev/null 2>&1 || die "--program $LOCAL does not run here"
+fi
+
 # Which build of the program this machine runs.
 case $(uname -s)/$(uname -m) in
+    Darwin/*)
+        # No release has a macOS program: it is built here, before 1.1 GB is downloaded.
+        [ -n "$LOCAL" ] || die "releases have no macOS program; build it and pass it with --program:
+    cargo build --release --manifest-path rust/Cargo.toml -p lxask
+    sh scripts/install.sh --program rust/target/release/lxask"
+        PROGRAM=lxask-macos-$(uname -m) ;;
     Linux/x86_64|Linux/amd64)
         if grep -qw avx2 /proc/cpuinfo && grep -qw fma /proc/cpuinfo; then
             PROGRAM=lxask-x86_64-v3
@@ -77,7 +109,7 @@ case $(uname -s)/$(uname -m) in
             PROGRAM=lxask-aarch64
         fi ;;
     Linux/arm*) die "this is a 32-bit ARM system ($(uname -m)); lxask needs a 64-bit one (on a Raspberry Pi 4 or 5: Raspberry Pi OS (64-bit))" ;;
-    *) die "lxask runs on Linux x86_64 and aarch64; this is $(uname -s) $(uname -m)" ;;
+    *) die "lxask runs on Linux x86_64 and aarch64 and on macOS; this is $(uname -s) $(uname -m)" ;;
 esac
 # A 32-bit system on a 64-bit kernel (32-bit Raspberry Pi OS on a Pi 4 or 5 is one)
 # reports aarch64 above, but cannot run a 64-bit program
@@ -97,16 +129,23 @@ done
 if [ "$MEMCHECK" = 1 ] && [ -n "$MEM_KB" ] && [ "$MEM_KB" -lt 1310720 ]; then
     die "this machine has $((MEM_KB / 1024)) MB of memory; lxask needs about 1.3 GB free while it answers (a Raspberry Pi needs 2 GB or more). --skip-memory-check installs anyway"
 fi
-if ldd --version 2>&1 | grep -qi musl; then
-    die "this system uses musl libc (Alpine?); lxask's builds need glibc"
+# The release's Linux programs need glibc; a program built here was built for this libc.
+if [ "$(uname -s)" = Linux ] && [ -z "$LOCAL" ]; then
+    if ldd --version 2>&1 | grep -qi musl; then
+        die "this system uses musl libc (Alpine?); lxask's builds need glibc"
+    fi
+    GLIBC=$(getconf GNU_LIBC_VERSION 2>/dev/null | cut -d' ' -f2)
+    case $GLIBC in
+        "") ;;
+        2.2[0-7]|2.2[0-7].*|2.1[0-9]*) die "glibc $GLIBC is too old; lxask needs 2.28 or newer" ;;
+    esac
 fi
-GLIBC=$(getconf GNU_LIBC_VERSION 2>/dev/null | cut -d' ' -f2)
-case $GLIBC in
-    "") ;;
-    2.2[0-7]|2.2[0-7].*|2.1[0-9]*) die "glibc $GLIBC is too old; lxask needs 2.28 or newer" ;;
-esac
 
-WANTED="SHA256SUMS $PROGRAM embed.gguf docs.sqlite"
+if [ -n "$LOCAL" ]; then
+    WANTED="SHA256SUMS embed.gguf docs.sqlite"  # the program is $LOCAL
+else
+    WANTED="SHA256SUMS $PROGRAM embed.gguf docs.sqlite"
+fi
 OPTIONAL="LICENSE NOTICE"  # releases before 0.8.1 have none
 
 # Installed as linu (0.8 and earlier): its files move here once, links included.
@@ -233,13 +272,21 @@ EOF
 
 fetch
 say "checking checksums"
-(cd "$STAGE" && sha256sum -c --quiet --ignore-missing SHA256SUMS) || die "checksum mismatch: the download is damaged, run again"
+(cd "$STAGE" && sha256 -c --quiet --ignore-missing SHA256SUMS) || die "checksum mismatch: the download is damaged, run again"
 
 MODEL=$(cd "$STAGE" && ls lxask-*.gguf 2>/dev/null | head -n 1)
+if [ -n "$LOCAL" ]; then
+    # Built here, so the release's SHA256SUMS cannot list it; copied in after the check.
+    cp "$LOCAL" "$STAGE/$PROGRAM"
+    LISTED=$MODEL
+else
+    LISTED="$PROGRAM $MODEL"
+fi
 [ -n "$MODEL" ] && [ -f "$STAGE/$PROGRAM" ] && [ -f "$STAGE/embed.gguf" ] && [ -f "$STAGE/docs.sqlite" ] \
     || die "the release lacks one of: $PROGRAM, lxask-*.gguf, embed.gguf, docs.sqlite"
-(cd "$STAGE" && grep -q " $PROGRAM\$" SHA256SUMS && grep -q " $MODEL\$" SHA256SUMS) \
-    || die "SHA256SUMS does not list $PROGRAM and $MODEL"
+for name in $LISTED; do
+    (cd "$STAGE" && grep -q " $name\$" SHA256SUMS) || die "SHA256SUMS does not list $name"
+done
 chmod 755 "$STAGE/$PROGRAM"
 "$STAGE/$PROGRAM" --version >/dev/null 2>&1 || die "$PROGRAM does not run here (glibc 2.28 or newer needed)"
 
@@ -282,10 +329,10 @@ if [ -e "$BIN/lxask" ] || [ -L "$BIN/lxask" ]; then
     mv -f "$BIN/lxask" "$DATA/lxask.previous"  # an older lxask
 fi
 mv "$STAGE/$PROGRAM" "$BIN/lxask"
-say "installed lxask ($PROGRAM) and $MODEL${ADAPTER:+ with its adapters $ADAPTER}; the command is $BIN/lxask"
+say "installed lxask (${LOCAL:-$PROGRAM}) and $MODEL${ADAPTER:+ with its adapters $ADAPTER}; the command is $BIN/lxask"
 # A server the old lxask started holds the old model and answers no newer program:
 # stopped, so the next question starts one of this version (any version obeys a stop).
-LXASK_HOME="$DATA" timeout 30 "$BIN/lxask" --stop 2>&1 | grep -q 'server stopped' \
+LXASK_HOME="$DATA" with_timeout 30 "$BIN/lxask" --stop 2>&1 | grep -q 'server stopped' \
     && say "stopped the lxask server the old version had running"
 if [ -e "$BIN/linu" ] && [ ! -L "$BIN/linu" ]; then
     mv -f "$BIN/linu" "$DATA/linu.previous"
