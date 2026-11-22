@@ -216,8 +216,13 @@ fn py_prefix(text: &str, n: usize) -> String {
 mod tests {
     use super::*;
 
+    // One directory per test. Tests run on parallel threads, and the clock alone can give
+    // two of them the same name; the counter cannot.
     fn home() -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("lxask-share-{}-{}", std::process::id(), rand_suffix()));
+        static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let dir = std::env::temp_dir().join(format!("lxask-share-{}-{}-{n}", std::process::id(), rand_suffix()));
+        let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         dir
     }

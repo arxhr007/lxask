@@ -126,6 +126,9 @@ static NUMERIC_OPTION: LazyRe = re!(r"-\d+");
 static SIGNAL_NAME: LazyRe = re!(r"-(?:SIG)?[A-Z][A-Z0-9+]*");
 static CHMOD_MODE: LazyRe = re!(r"-[rwxXst]+");
 static BASH_LINE: LazyRe = re!(r"^.*?line \d+: ");
+static SHELL_C: LazyRe = re!(r"-[a-z]*c[a-z]*");
+// `[[ ... ]]` as a command: bash and zsh have it, sh does not (dash on Debian and Ubuntu).
+static DOUBLE_BRACKET: LazyRe = re!(r"(?:^|[\s;&|(!])\[\[\s");
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Issue {
@@ -174,6 +177,28 @@ pub fn parse_option_title(title: &str) -> Vec<(String, bool)> {
     unique.into_iter().map(|flag| (flag, takes_argument)).collect()
 }
 
+/// `[i]`, `[pattern...]`: one bracketed group, the whole value optional. Not
+/// `[protocol://]host[:port]` (curl --proxy), a value that starts with an optional part.
+fn optional_group(word: &str) -> bool {
+    if !word.starts_with('[') {
+        return false;
+    }
+    let mut depth = 0;
+    for (at, c) in word.char_indices() {
+        match c {
+            '[' => depth += 1,
+            ']' => {
+                depth -= 1;
+                if depth == 0 {
+                    return at + 1 == word.len();
+                }
+            }
+            _ => {}
+        }
+    }
+    false
+}
+
 /// Whether the text after an option in a heading is an argument (`-I replace-str`) and
 /// not a description sharing the line (`-print True; print the full file name`).
 fn names_an_argument(rest: &str) -> bool {
@@ -186,7 +211,15 @@ fn names_an_argument(rest: &str) -> bool {
         return false;
     }
     let first = words[0];
-    let prose = first.ends_with(['.', ';', ':']) || PROSE_WORDS.contains(&first.to_lowercase().as_str());
+    if optional_group(first) {
+        return false; // lsof's `-i [i]`: an optional value, given attached if at all
+    }
+    // tar(1)'s `--null Instruct  subsequent -T options ...`: a capitalized word starts a
+    // sentence; arguments are FILE, N or list.
+    let capitalized = first.chars().next().is_some_and(char::is_uppercase)
+        && first.chars().count() >= 3
+        && first.chars().skip(1).all(char::is_lowercase);
+    let prose = capitalized || first.ends_with(['.', ';', ':']) || PROSE_WORDS.contains(&first.to_lowercase().as_str());
     !prose && !words.iter().any(|word| word.starts_with('-'))
 }
 
@@ -576,6 +609,33 @@ pub struct Use {
     /// (option as written, the documented options it stands for). None: not documented.
     /// Empty: accepted without a manual entry of its own (`-9`, a signal name).
     pub options: Vec<(String, Option<Vec<String>>)>,
+    /// Options that take a value but end the command (`findmnt --types`).
+    pub missing_value: Vec<String>,
+}
+
+/// Whether `option` of `program` is written in `command` as the last word of a command:
+/// followed by the end, a pipe, a list or a closing parenthesis, with `program` before
+/// it in the same command. The tokens alone say so too often: a quoted `'|'`, an empty
+/// `""` or a `<PLACEHOLDER>` value is not a token of its own.
+fn ends_a_command(command: &str, program: &str, option: &str) -> bool {
+    const BOUNDARY_CHARS: [char; 6] = ['|', ';', '&', '(', ')', '\n'];
+    command.match_indices(option).any(|(at, _)| {
+        let before = &command[..at];
+        let after = command[at + option.len()..].trim_start_matches([' ', '\t']);
+        let this_command = before.rsplit(BOUNDARY_CHARS).next().unwrap_or("");
+        before.chars().next_back().is_none_or(char::is_whitespace)
+            && (after.is_empty() || after.starts_with(BOUNDARY_CHARS))
+            && py::split_ws(this_command).iter().any(|word| *word == program || word.ends_with(&format!("/{program}")))
+    })
+}
+
+/// The script of `sh -c SCRIPT` (also bash, dash, zsh, and `-ec`-style clusters).
+fn shell_script<'a>(name: &str, arguments: &'a [String]) -> Option<&'a String> {
+    if !matches!(name, "sh" | "bash" | "dash" | "zsh") {
+        return None;
+    }
+    let position = arguments.iter().position(|a| SHELL_C.fullmatches(a))?;
+    arguments.get(position + 1)
 }
 
 /// (the documented options one option-looking token stands for, consumes the next word)
@@ -628,7 +688,7 @@ fn walk(tokens: &[String], catalog: &Catalog, out: &mut Vec<Use>) {
     if name.is_empty() {
         return;
     }
-    let simple = |status| Use { program: name.to_string(), status, arguments: vec![], options: vec![] };
+    let simple = |status| Use { program: name.to_string(), status, arguments: vec![], options: vec![], missing_value: vec![] };
     if NOT_LINUX_PROGRAMS.contains(&name) {
         out.push(simple("not-linux"));
         return;
@@ -638,16 +698,17 @@ fn walk(tokens: &[String], catalog: &Catalog, out: &mut Vec<Use>) {
         return;
     }
     if let Some(add_on) = catalog.unknown_subcommand(name, arguments) {
-        out.push(Use { program: format!("{name} {add_on}"), status: "add-on", arguments: vec![], options: vec![] });
+        out.push(Use { program: format!("{name} {add_on}"), status: "add-on", arguments: vec![], options: vec![], missing_value: vec![] });
         return;
     }
     if let Some(verb) = catalog.unknown_verb(name, arguments) {
-        out.push(Use { program: name.to_string(), status: "unknown-verb", arguments: vec![verb.to_string()], options: vec![] });
+        out.push(Use { program: name.to_string(), status: "unknown-verb", arguments: vec![verb.to_string()], options: vec![], missing_value: vec![] });
         return;
     }
 
     let mut nested: Vec<&[String]> = Vec::new();
     let mut used: Vec<(String, Option<Vec<String>>)> = Vec::new();
+    let mut missing: Vec<String> = Vec::new();
     let options = if TEXT_ARGUMENTS.contains(&name) { None } else { catalog.options_for(name, arguments) };
     let unchecked_from = catalog.subcommand_at(name, arguments);
     let mut operands = wrapper_operands(name);
@@ -674,6 +735,14 @@ fn walk(tokens: &[String], catalog: &Catalog, out: &mut Vec<Use>) {
         if token.starts_with('-') && !token.trim_matches('-').is_empty() {
             if let Some(options) = &options {
                 let (flags, consumes) = resolve(token, options, name);
+                // only a whole option (not a cluster such as `-Is`, whose letters may be a value)
+                let whole = flags.as_ref().is_some_and(|f| f.len() == 1 && f[0] == token);
+                // A shell's manual documents its builtins' options too (`test -s FILE`,
+                // `ulimit -s`): what one of its own options takes is not known from it.
+                let shell = matches!(name, "sh" | "bash" | "dash" | "zsh");
+                if consumes && whole && i + 1 == arguments.len() && !WRAPPERS.contains(&name) && !shell {
+                    missing.push(token.to_string());
+                }
                 used.push((token.split('=').next().unwrap().to_string(), flags));
                 i += consumes as usize;
             }
@@ -687,9 +756,17 @@ fn walk(tokens: &[String], catalog: &Catalog, out: &mut Vec<Use>) {
         }
         i += 1;
     }
-    out.push(Use { program: name.to_string(), status: "known", arguments: arguments.to_vec(), options: used });
+    out.push(Use { program: name.to_string(), status: "known", arguments: arguments.to_vec(), options: used, missing_value: missing });
     for inner in nested {
         walk(inner, catalog, out);
+    }
+    // `sh -c 'ls -l | grep x'`: the script's commands are commands too
+    if let Some(script) = shell_script(name, arguments) {
+        if let Ok(commands) = simple_commands(script) {
+            for inner in commands {
+                walk(&inner, catalog, out);
+            }
+        }
     }
 }
 
@@ -765,6 +842,14 @@ pub fn check(command: &str, catalog: &Catalog, syntax: bool) -> Vec<Issue> {
         for (written, flags) in &use_.options {
             if flags.is_none() {
                 issues.push(issue("undocumented-option", format!("{name}: {written} is not a documented option")));
+            }
+        }
+        for written in use_.missing_value.iter().filter(|written| ends_a_command(command, name, written)) {
+            issues.push(issue("undocumented-option", format!("{name}: {written} needs a value and has none")));
+        }
+        if let Some(script) = shell_script(name, &use_.arguments) {
+            if matches!(name.as_str(), "sh" | "dash") && DOUBLE_BRACKET.is_match(script) {
+                issues.push(issue("syntax", format!("{name} -c: [[ ]] is bash syntax; sh on Debian and Ubuntu (dash) does not have it")));
             }
         }
     }
@@ -946,5 +1031,57 @@ mod tests {
         }
         let uses = uses("systemctl inspect x", &catalog).unwrap();
         assert_eq!((uses[0].program.as_str(), uses[0].status), ("systemctl", "unknown-verb"));
+    }
+
+    fn sample() -> Catalog {
+        build_catalog(
+            ["findmnt", "lsof", "sh", "bash", "jq", "sudo", "xargs"],
+            [
+                ("findmnt", "-t, --types list", ""), ("findmnt", "-o, --output list", ""), ("findmnt", "-n, --noheadings", ""),
+                ("lsof", "-i [i]", ""), ("lsof", "-p s", ""), ("lsof", "-n", ""),
+                ("sh", "-c", ""), ("sh", "-e", ""), ("sh", "-x", ""),
+                ("bash", "-c", ""), ("bash", "-e", ""), ("bash", "-l", ""),
+                ("jq", "-r, --raw-output", ""), ("jq", "-c", ""), ("jq", "-n", ""),
+            ],
+            [],
+            [],
+        )
+    }
+
+    fn flagged(command: &str) -> Vec<String> {
+        check(command, &sample(), false).into_iter().map(|issue| issue.detail).collect()
+    }
+
+    #[test]
+    fn an_option_that_ends_the_command_without_its_value_is_flagged() {
+        assert_eq!(flagged("findmnt --types"), vec!["findmnt: --types needs a value and has none"]);
+        assert_eq!(flagged("findmnt -n -t | jq -c ."), vec!["findmnt: -t needs a value and has none"]);
+        for fine in ["findmnt --types ext4", "findmnt -t ext4,xfs -n", "findmnt --types=ext4", "findmnt -no TARGET",
+                     "sudo findmnt -n", "lsof -i", "lsof -i :8080", "lsof -n -i",
+                     // values the tokens lose: quoted boundaries, empty strings, a cluster's own letters
+                     "findmnt -t '|' -n", "findmnt -o \"\"", "findmnt -nt"] {
+            assert!(flagged(fine).is_empty(), "{fine}: {:?}", flagged(fine));
+        }
+        // `-i [i]`: the value is optional, so `lsof -i` alone is a whole command
+        assert_eq!(parse_option_title("-i [i]"), vec![("-i".into(), false)]);
+        assert_eq!(parse_option_title("-x, --proxy [protocol://]host[:port]"), vec![("-x".into(), true), ("--proxy".into(), true)]);
+        // a heading cut off in the middle of its sentence (tar's `--null Instruct`)
+        assert_eq!(parse_option_title("--null Instruct"), vec![("--null".into(), false)]);
+        // the option belongs to the command it ends, not to a program earlier on the line
+        assert_eq!(flagged("findmnt -t '|' -n | jq -c . | findmnt -n"), Vec::<String>::new());
+        assert_eq!(flagged("jq -c . | findmnt -t"), vec!["findmnt: -t needs a value and has none"]);
+    }
+
+    #[test]
+    fn the_script_of_sh_c_is_checked_too() {
+        assert_eq!(flagged("sh -c 'findmnt --bogus'"), vec!["findmnt: --bogus is not a documented option"]);
+        assert_eq!(flagged("xargs -I {} sh -c 'jq -r .Name < {}'"), Vec::<String>::new());
+        assert_eq!(flagged("sh -c 'if [[ $x == *web* ]]; then echo y; fi'"),
+                   vec!["sh -c: [[ ]] is bash syntax; sh on Debian and Ubuntu (dash) does not have it"]);
+        for fine in ["bash -c 'if [[ $x == *web* ]]; then echo y; fi'", "sh -c '[ -f x ] && echo y'", "sh -ec 'echo [[x]]'"] {
+            assert!(flagged(fine).is_empty(), "{fine}: {:?}", flagged(fine));
+        }
+        let programs: Vec<String> = uses("sh -c 'lsof -n | jq -c .'", &sample()).unwrap().into_iter().map(|u| u.program).collect();
+        assert_eq!(programs, vec!["sh", "lsof", "jq"]);
     }
 }

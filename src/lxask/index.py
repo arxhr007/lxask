@@ -114,6 +114,7 @@ def tldr_rows(page: TldrPage) -> Iterator[Row]:
 _OPTION_HEAD = re.compile(r"-{1,2}[\w?]")
 # Headings usually sit 7 columns in, but nested lists (ss, ip) put them at 14.
 _HEADING_INDENT = 16
+_WRAPPED_CHARS = 60  # a line at least this long, not ending a sentence, runs on below
 _OPTION_HEADING = re.compile(r"-{1,2}[\w?]|-,\s*-")  # also su(1)'s `-, -l, --login`
 _MAN_NAME = re.compile(r"^NAME\n\s+(.+?)\n\s*\n", re.M | re.S)
 
@@ -159,18 +160,31 @@ def man_option_docs(text: str) -> Iterator[tuple[str, str]]:
     def indent_of(line: str) -> int:
         return len(line) - len(line.lstrip())
 
+    def wrapped(line: str) -> bool:
+        """A line of running prose cut at the margin, not a short list item."""
+        stripped = line.strip()
+        return len(stripped) >= _WRAPPED_CHARS and not stripped.endswith((".", ":"))
+
+    prose: list[bool] = []  # per line: an option-looking line that is really wrapped prose
     for i, line in enumerate(lines):
         stripped = line.strip()
         indent = indent_of(line)
         if indent > _HEADING_INDENT or not _OPTION_HEADING.match(stripped):
+            prose.append(False)
             continue
         above = lines[i - 1] if i else ""
         below = lines[i + 1] if i + 1 < len(lines) else ""
         title, *parts = re.split(r"\s{2,}", stripped, maxsplit=1)
-        if (above.strip() and indent_of(above) == indent and not _OPTION_HEADING.match(above.strip())
+        # lsof(1): "-C'' may be stated as -abC.  However, since values are optional
+        # following  +|-f,  -F,  -g," then "-i,  +|-L,  -o, ...": a run of prose lines
+        # that each start with an option. The one above counts as prose if it is.
+        above_is_prose = not _OPTION_HEADING.match(above.strip()) or (prose[i - 1] and wrapped(above))
+        if (above.strip() and indent_of(above) == indent and above_is_prose
                 and not (below.strip() and indent_of(below) > indent)):
+            prose.append(True)
             yield title, ""
             continue
+        prose.append(False)
         may_skip_blank = not parts
         for following in lines[i + 1 :]:
             if not following.strip():
