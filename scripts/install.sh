@@ -18,7 +18,7 @@ set -eu
 
 # LINU_*: the same settings as named up to 0.8, when lxask was called linu
 REPO=${LXASK_REPO:-${LINU_REPO:-arxhr007/lxask}}
-TAG=${LXASK_TAG:-${LINU_TAG:-v1.4.0}}  # release_files.sh checks this is the version released
+TAG=${LXASK_TAG:-${LINU_TAG:-v1.5.0}}  # release_files.sh checks this is the version released
 DATA=${LXASK_HOME:-${LINU_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/lxask}}
 BIN=${LXASK_BIN:-${LINU_BIN:-$HOME/.local/bin}}
 FROM=""
@@ -61,7 +61,18 @@ case $(uname -s)/$(uname -m) in
         else
             die "this CPU lacks SSE4.2; lxask needs an x86_64 CPU from 2009 or later"
         fi ;;
-    Linux/aarch64|Linux/arm64) PROGRAM=lxask-aarch64 ;;
+    Linux/aarch64|Linux/arm64)
+        # Dot product and half-precision arithmetic (ARMv8.2: Raspberry Pi 5, Graviton, Apple,
+        # most ARM servers) make reading the prompt much faster than the plain ARMv8 build
+        if grep -qw asimddp /proc/cpuinfo 2>/dev/null && grep -qw asimdhp /proc/cpuinfo 2>/dev/null; then
+            PROGRAM=lxask-aarch64-dotprod
+            # a directory of release files from before that build existed
+            if [ -n "$FROM" ] && [ ! -f "$FROM/$PROGRAM" ] && [ -f "$FROM/lxask-aarch64" ]; then
+                PROGRAM=lxask-aarch64
+            fi
+        else
+            PROGRAM=lxask-aarch64
+        fi ;;
     *) die "lxask runs on Linux x86_64 and aarch64; this is $(uname -s) $(uname -m)" ;;
 esac
 if ldd --version 2>&1 | grep -qi musl; then

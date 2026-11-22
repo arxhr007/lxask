@@ -70,7 +70,8 @@ check the installer against the release checksums first.
 
 1. From the [latest release](https://github.com/arxhr007/lxask/releases/latest), download
    one program (`lxask-x86_64-v3` for x86 PCs since about 2015, `lxask-x86_64` for older
-   ones, `lxask-aarch64` for ARM64), plus `lxask-round4-Q4_K_M.gguf`,
+   ones, `lxask-aarch64-dotprod` for ARM64 with dot product such as the Pi 5, `lxask-aarch64`
+   for other ARM64), plus `lxask-round4-Q4_K_M.gguf`,
    `restrict-round4.gguf`, `precision-round4.gguf`, `embed.gguf`, `docs.sqlite` and
    `SHA256SUMS`. Check them with `sha256sum -c --ignore-missing SHA256SUMS`.
 2. Put the program on your PATH as `lxask`:

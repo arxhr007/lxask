@@ -14,7 +14,8 @@
 |---|---|---|
 | x86_64 with AVX2 (most PCs since 2015) | `lxask-x86_64-v3` | yes: Ubuntu 24.04 (WSL2) and Debian/Ubuntu containers, every release; CI on each push |
 | older x86_64 (SSE4.2) | `lxask-x86_64` | yes, the same way, less often |
-| ARM64 (Raspberry Pi 4/5, ARM servers) | `lxask-aarch64` | yes: installs and answers the same as x86_64; reports from real devices welcome |
+| ARM64 with dot product (Raspberry Pi 5 and CM5, Graviton, Apple, most ARM servers) | `lxask-aarch64-dotprod` | installs and answers the same as x86_64 (checked under emulation); speed measured on a real Pi 5 pending |
+| other ARM64 (Raspberry Pi 4) | `lxask-aarch64` | yes: installs and answers the same as x86_64; reports from real devices welcome |
 | other distributions (Fedora, Arch, openSUSE) | same builds | the program runs anywhere with glibc 2.28+; answers are tuned and measured on Debian/Ubuntu ([accuracy.md](accuracy.md#platforms)) |
 
 ## Install or upgrade
@@ -35,7 +36,8 @@ sha256sum -c --ignore-missing SHA256SUMS      # install.sh: OK
 The script:
 
 1. picks the build for your CPU: `lxask-x86_64-v3` (AVX2, nearly every x86 PC since
-   2015), `lxask-x86_64` (older x86) or `lxask-aarch64`;
+   2015), `lxask-x86_64` (older x86), `lxask-aarch64-dotprod` (ARM64 with the dot-product
+   instructions, which `/proc/cpuinfo` lists as `asimddp`) or `lxask-aarch64`;
 2. downloads it with the model, its adapters, the encoder and the documentation
    index, using curl, wget or a logged-in `gh`;
 3. checks every file against `SHA256SUMS`;

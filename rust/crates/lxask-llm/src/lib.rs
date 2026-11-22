@@ -128,6 +128,18 @@ pub struct Llm {
     precision_adapter: Option<LlamaLoraAdapter>,
     /// which adapter the last specialize() call applied, if one exists
     specialized: Option<route::Adapter>,
+    stats: Stats,
+}
+
+/// What the model did since `Llm::take_stats` was last called (for LXASK_TIMING).
+#[derive(Clone, Copy, Default, Debug)]
+pub struct Stats {
+    /// prompt tokens that had to be computed, not found in the cache, and the seconds they took
+    pub prompt_tokens: usize,
+    pub prompt_secs: f64,
+    /// tokens written, and the seconds they took
+    pub reply_tokens: usize,
+    pub reply_secs: f64,
 }
 
 /// The chat model's weights (and adapters), loaded (the slow part) apart from its
@@ -182,6 +194,7 @@ impl Llm {
             restrict_adapter,
             precision_adapter,
             specialized: None,
+            stats: Stats::default(),
         })
     }
 
@@ -207,6 +220,10 @@ impl Llm {
         self.logits_live = false;
         self.specialized = Some(which);
         Ok(())
+    }
+
+    pub fn take_stats(&mut self) -> Stats {
+        std::mem::take(&mut self.stats)
     }
 
     /// Feed `tokens` after what is cached, in batches; logits for the last one.
@@ -249,8 +266,12 @@ impl Llm {
             self.logits_live = false;
             &tokens[reuse..]
         };
+        let started = std::time::Instant::now();
         self.eval(pending)?;
+        self.stats.prompt_tokens += pending.len();
+        self.stats.prompt_secs += started.elapsed().as_secs_f64();
 
+        let started = std::time::Instant::now();
         let n_vocab = self.model.n_vocab();
         let penalties = LlamaSampler::penalties(n_vocab, PENALTY_LAST_N, repeat_penalty, 0.0, 0.0);
         let mut sampler = if temperature == 0.0 {
@@ -268,12 +289,14 @@ impl Llm {
         };
 
         let mut text: Vec<u8> = Vec::new();
+        let mut produced = 0;
         for generated in 0..max_tokens {
             let token = sampler.sample(&self.ctx, -1);
             if vocab.is_eog(token) {
                 break;
             }
             text.extend(vocab.token_to_piece(token, false, None));
+            produced += 1;
             if !self.stop.is_empty() {
                 if let Some(at) = text.windows(self.stop.len()).position(|w| w == self.stop.as_slice()) {
                     text.truncate(at);
@@ -285,6 +308,8 @@ impl Llm {
             }
             self.eval(&[token])?;
         }
+        self.stats.reply_tokens += produced;
+        self.stats.reply_secs += started.elapsed().as_secs_f64();
         Ok(strip_thinking(&decode_ignoring(&text)))
     }
 

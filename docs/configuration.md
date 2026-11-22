@@ -36,7 +36,7 @@ The program itself is `~/.local/bin/lxask`.
 | `LXASK_PACKAGE_MANAGERS` | found on the machine | package managers to answer for, comma-separated (`apt,dpkg` or `dnf,rpm`) |
 | `LXASK_AS_ROOT` | found from the user | `1`: don't add `sudo`; `0`: add it to commands that need root |
 | `LXASK_GPU_LAYERS` | `0` | model layers on the GPU; only builds with a GPU backend (the releases are CPU only) |
-| `LXASK_TIMING` | unset | set: print how long each start-up stage took |
+| `LXASK_TIMING` | unset | set: print how long each start-up stage took and, for each answer, how its time split between reading the prompt, writing the reply and retrieval (the process that answers prints it: with a server, set it for `lxask --serve`) |
 | `LXASK_SERVE` | the `serve` setting | `auto`: keep lxask loaded between questions; `off`: load it for each |
 | `LXASK_SERVER` | the `server` setting | `host:port` of another machine's `lxask --serve --listen`, to ask it instead of a model here |
 | `LXASK_TOKEN` | the `token` setting, else `$LXASK_HOME/token` | the token for `--listen`, or for asking `LXASK_SERVER` |
