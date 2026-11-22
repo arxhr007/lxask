@@ -169,3 +169,38 @@ A multi-part request costs one model call per part plus one for the split, and u
 two more per part when a check objects. Peak memory while answering is about 1.3 GB
 (resident, measured in the container); a slower or older CPU takes several times as
 long.
+
+### Where the time goes
+
+Most of an answer is the model reading its prompt, not writing the reply and not
+searching. `LXASK_TIMING=1` prints the split. On the laptop above, for "count the lines
+in notes.txt", served (version 1.4.0):
+
+| | tokens | time |
+|---|---|---|
+| reading the prompt (the notes retrieval found, about 170 tokens) | 174 | 1.4 s |
+| writing the reply | 10 | 0.4 s |
+| retrieval (the encoder and the search) | | 0.1 s |
+
+With `--no-rag` there are no notes, so only the question is read (the rest of the prompt
+is kept from the last answer): 13 tokens, 0.4 s, and 0.7 s for the whole model call. A
+question that needs a retry reads a longer prompt twice. Reading a prompt is
+compute-bound, so a CPU gains most from instructions the build can use.
+
+### Raspberry Pi
+
+Reported by a user on a Compute Module 5 (Cortex-A76, 4 cores), version 1.2.0 as
+installed, and the same program built for that CPU (`-C target-cpu=native`):
+
+| | installed build | built for the CPU |
+|---|---|---|
+| one question, model kept loaded | 16.5 s | 7.0 s |
+| one question, loading each time | 22.6 s | 13.2 s |
+| `--no-rag`, kept loaded | 3.0 s | 1.7 s |
+| `--no-rag`, loading each time | 8.7 s | 7.8 s |
+| peak memory | 1.3 GB | 1.5 GB |
+
+The installed `lxask-aarch64` is built for plain ARMv8, without the dot-product
+instructions the A76 has. `lxask-aarch64-dotprod` is built for ARMv8.2 with them, and
+`install.sh` picks it where `/proc/cpuinfo` lists `asimddp`. Its speed on a real device is
+not measured yet.

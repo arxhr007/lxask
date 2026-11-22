@@ -61,7 +61,18 @@ case $(uname -s)/$(uname -m) in
         else
             die "this CPU lacks SSE4.2; lxask needs an x86_64 CPU from 2009 or later"
         fi ;;
-    Linux/aarch64|Linux/arm64) PROGRAM=lxask-aarch64 ;;
+    Linux/aarch64|Linux/arm64)
+        # Dot product and half-precision arithmetic (ARMv8.2: Raspberry Pi 5, Graviton, Apple,
+        # most ARM servers) make reading the prompt much faster than the plain ARMv8 build
+        if grep -qw asimddp /proc/cpuinfo 2>/dev/null && grep -qw asimdhp /proc/cpuinfo 2>/dev/null; then
+            PROGRAM=lxask-aarch64-dotprod
+            # a directory of release files from before that build existed
+            if [ -n "$FROM" ] && [ ! -f "$FROM/$PROGRAM" ] && [ -f "$FROM/lxask-aarch64" ]; then
+                PROGRAM=lxask-aarch64
+            fi
+        else
+            PROGRAM=lxask-aarch64
+        fi ;;
     *) die "lxask runs on Linux x86_64 and aarch64; this is $(uname -s) $(uname -m)" ;;
 esac
 if ldd --version 2>&1 | grep -qi musl; then

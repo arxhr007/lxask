@@ -5,7 +5,7 @@
 #   scripts/release_files.sh OUT_DIR       # adds the model, the encoder, the index
 #   gh release create vX.Y.Z -R arxhr007/lxask OUT_DIR/*
 #
-# OUT_DIR ends up with lxask-x86_64-v3, lxask-x86_64, lxask-aarch64, the lxask._core wheel
+# OUT_DIR ends up with lxask-x86_64-v3, lxask-x86_64, lxask-aarch64-dotprod, lxask-aarch64, the lxask._core wheel
 # (for training and evaluation; users do not need it), the model (named after the file
 # model.gguf points to), its adapters (named after the files restrict.gguf and
 # precision.gguf point to, if there are any), embed.gguf, docs.sqlite, LICENSE, NOTICE,
@@ -18,7 +18,7 @@ OUT=${1:?usage: release_files.sh OUT_DIR}
 DATA="${LXASK_HOME:-${LINU_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/lxask}}"
 # installed as linu (0.8 and earlier) and not moved yet
 [ -e "$DATA/model.gguf" ] || [ -n "${LXASK_HOME:-${LINU_HOME:-}}" ] || DATA="${XDG_DATA_HOME:-$HOME/.local/share}/linu"
-for program in lxask-x86_64-v3 lxask-x86_64 lxask-aarch64; do
+for program in lxask-x86_64-v3 lxask-x86_64 lxask-aarch64-dotprod lxask-aarch64; do
     [ -x "$OUT/$program" ] || { echo "$OUT/$program missing: run scripts/build_release.sh $OUT first" >&2; exit 1; }
 done
 
@@ -45,6 +45,6 @@ grep -q "^TAG=.*:-v$VERSION}}" "$ROOT/scripts/install.sh" \
     || { echo "scripts/install.sh does not install v$VERSION: update its TAG line" >&2; exit 1; }
 cp "$ROOT/scripts/install.sh" "$OUT/install.sh"
 cp "$ROOT/LICENSE" "$ROOT/NOTICE" "$OUT/"
-(cd "$OUT" && sha256sum lxask-x86_64-v3 lxask-x86_64 lxask-aarch64 lxask-*.whl "$NAME" $ADAPTER_NAMES embed.gguf docs.sqlite LICENSE NOTICE install.sh > SHA256SUMS)
+(cd "$OUT" && sha256sum lxask-x86_64-v3 lxask-x86_64 lxask-aarch64-dotprod lxask-aarch64 lxask-*.whl "$NAME" $ADAPTER_NAMES embed.gguf docs.sqlite LICENSE NOTICE install.sh > SHA256SUMS)
 ls -la "$OUT"
 cat "$OUT/SHA256SUMS"

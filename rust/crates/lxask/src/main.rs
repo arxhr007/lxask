@@ -537,22 +537,49 @@ impl Loaded {
     fn answer(&mut self, question: &str, rag: bool, retry: bool) -> Result<Vec<Step>, Error> {
         let llm = &self.llm;
         llm.borrow_mut().specialize(lxask_core::route::adapter(question, self.catalog.as_ref()))?;
-        let mut chat = |m: &[Message]| llm.borrow_mut().ask(m);
-        let mut resample = |m: &[Message], attempt: usize| llm.borrow_mut().sample(m, attempt);
+        // LXASK_TIMING: where the time went, as (calls, time) for the model and for retrieval
+        let model_time = std::cell::Cell::new((0u32, std::time::Duration::ZERO));
+        let search_time = std::cell::Cell::new((0u32, std::time::Duration::ZERO));
+        let tick = |cell: &std::cell::Cell<(u32, std::time::Duration)>, since: std::time::Instant| {
+            let (n, t) = cell.get();
+            cell.set((n + 1, t + since.elapsed()));
+        };
+        let mut chat = |m: &[Message]| {
+            let started = std::time::Instant::now();
+            let reply = llm.borrow_mut().ask(m);
+            tick(&model_time, started);
+            reply
+        };
+        let mut resample = |m: &[Message], attempt: usize| {
+            let started = std::time::Instant::now();
+            let reply = llm.borrow_mut().sample(m, attempt);
+            tick(&model_time, started);
+            reply
+        };
         let retriever = &mut self.retriever;
         let mut search = |task: &str| -> Result<Vec<Doc>, Error> {
-            match retriever.as_mut() {
+            let started = std::time::Instant::now();
+            let found = match retriever.as_mut() {
                 Some(r) if rag => r.search(task, N_COMMANDS, TOP_EXAMPLES, OTHER_EXAMPLES),
                 _ => Ok(Vec::new()),
-            }
+            };
+            tick(&search_time, started);
+            found
         };
-        answer::answer(
+        let steps = answer::answer(
             question,
             &mut chat,
             &mut search,
             self.catalog.as_ref(),
             if retry { Some(&mut resample as &mut answer::Resample) } else { None },
-        )
+        );
+        if lxask_core::setting("TIMING").is_some() {
+            let ((m, mt), (s, st)) = (model_time.get(), search_time.get());
+            let stats = llm.borrow_mut().take_stats();
+            eprintln!("lxask: model {m} calls {:.2} s (prompt {} tokens {:.2} s, reply {} tokens {:.2} s), retrieval {s} calls {:.2} s",
+                      mt.as_secs_f64(), stats.prompt_tokens, stats.prompt_secs, stats.reply_tokens, stats.reply_secs, st.as_secs_f64());
+        }
+        steps
     }
 
     /// One question answered, as printed: the same here and in the server. An
