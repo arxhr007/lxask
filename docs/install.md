@@ -2,10 +2,11 @@
 
 ## Requirements
 
-- Linux on x86_64 or ARM64 (ARMv8-A: Raspberry Pi 4 and 5, ARM servers).
+- 64-bit Linux on x86_64 or ARM64 (ARMv8-A: Raspberry Pi 4 and 5, ARM servers).
 - glibc 2.28 or newer: Debian 10, Ubuntu 18.10, Fedora, RHEL 8, Arch, openSUSE and
   later. Alpine and other musl systems are not supported.
-- About 1.1 GB of disk and 1.3 GB of free memory while answering.
+- About 1.1 GB of disk and 1.3 GB of free memory while answering (up to 1.5 GB on
+  ARM boards: a Raspberry Pi needs 2 GB of RAM or more).
 - Nothing else: no Python, no compiler, no GPU. After installing, no network.
 
 ## Platforms
@@ -76,6 +77,39 @@ lxask "show disk usage of each folder here"
 The first answer takes a few seconds while the model loads. To keep it loaded, see
 [the server](usage.md#keep-the-model-loaded).
 
+## Raspberry Pi and other small boards
+
+| board | runs lxask? |
+|---|---|
+| Raspberry Pi 5 and CM5, 2 GB or more | yes, with `lxask-aarch64-dotprod` |
+| Raspberry Pi 4 and CM4, 2 GB or more | yes, with `lxask-aarch64`, more slowly: its CPU has no dot-product instructions |
+| Raspberry Pi 3, Zero 2 W, any 1 GB board | no: the model does not fit in 1 GB, and the installer stops before downloading it |
+| Raspberry Pi 2, Zero, 1 | no: 32-bit CPUs |
+
+- **A 64-bit system.** Install Raspberry Pi OS (64-bit). The 32-bit Raspberry Pi OS
+  runs a 64-bit kernel on a Pi 4 or 5, so `uname -m` says `aarch64`, but it cannot run
+  a 64-bit program: the installer checks `getconf LONG_BIT` and stops there.
+  `getconf LONG_BIT` prints 64 on a system lxask runs on.
+- **Keep it loaded.** Most of the time goes into reading the notes for each question,
+  and loading the model adds several seconds more, so answer yes to keeping lxask
+  loaded. The server stops after 30 minutes without a question and gives its memory
+  back. On a 2 GB board, other programs have about half a gigabyte while it runs.
+- **Speed.** Measured by a user on a CM5 ([accuracy.md](accuracy.md#raspberry-pi)):
+  16.5 s per question with the plain ARM build of 1.2.0, 7.0 s with lxask built on the
+  board for its CPU. `lxask-aarch64-dotprod` uses the same faster instructions; its
+  time on a real board is not measured yet, and reports are welcome on
+  [GitHub](https://github.com/arxhr007/lxask/issues) (`LXASK_TIMING=1 lxask --serve`
+  prints where each answer's time went).
+- **All four cores.** Since 1.5.1 lxask writes the reply with one thread per core, so
+  all four on a Pi; earlier versions used two (half the CPUs, which on a PC with
+  hyperthreads is one per core). On four separate cores of a PC, four threads wrote
+  replies 1.4 times as fast as two. Reading the prompt, the larger part of an answer,
+  already used every core, so a whole answer gains less. `--threads N` sets it by hand.
+- **Cooling.** Under a long load a Pi without a cooler slows itself down when it gets
+  hot; `vcgencmd get_throttled` prints `throttled=0x0` when it has not.
+- `--no-rag` answers without the notes: on the CM5 3.0 s instead of 16.5 s. The
+  accuracy numbers are measured with the notes.
+
 ## Go back to the previous version
 
 ```sh
@@ -107,6 +141,10 @@ rm -r ~/.local/share/lxask        # the model, the index, your feedback reports
 - **"this CPU lacks SSE4.2"** or **"glibc ... is too old"**: the machine is older
   than lxask supports.
 - **"this system uses musl libc"**: Alpine. Use a Debian or Ubuntu container instead.
+- **"this is a 32-bit system"** or **"a 32-bit ARM system"**: install a 64-bit system
+  (on a Raspberry Pi, Raspberry Pi OS (64-bit)).
+- **"this machine has ... MB of memory"**: under 1.3 GB, the model does not fit.
+  `--skip-memory-check` installs anyway, for a machine whose memory is about to grow.
 - **"checksum mismatch"**: the download was damaged. Run the installer again.
 - **Slow answers**: about 7 seconds on a recent laptop is normal. `lxask --serve`
   brings it to about 2. On a small ARM board, expect several times that.

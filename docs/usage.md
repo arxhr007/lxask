@@ -283,7 +283,7 @@ Without a link: open an issue with the "Bad answer" template on
 | `--no-retry` | keep the first answer even if the checks object (faster) |
 | `--no-rag` | answer without the documentation notes |
 | `--show-context` | print the notes the model was given, to stderr |
-| `--threads N` | CPU threads (default: half the logical cores) |
+| `--threads N` | CPU threads (default: one per core; half the CPUs on a machine with hyperthreads, and in an x86 virtual machine) |
 | `--model FILE` | another model (answers without the adapter) |
 | `--index FILE` | another documentation index |
 | `--serve`, `--idle MIN`, `--stop` | the server, above |

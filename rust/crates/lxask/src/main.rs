@@ -51,7 +51,7 @@ options:
                      fish: lxask --shell-init fish | source)
   --show-context     print the retrieved notes to stderr
   --no-retry         keep the first answer even when the checks object to it (faster)
-  --threads THREADS  CPU threads (default: half the logical cores)
+  --threads THREADS  CPU threads (default: one per core)
   --serve            keep the model loaded and answer later questions quickly (holds about
                      1.4 GB of memory until stopped or idle)
   --idle MINUTES     with --serve: stop after this many minutes without a question (0: never)
@@ -530,7 +530,7 @@ impl Loaded {
         timing("catalogue, encoder, index", started);
         let weights = loading.join().map_err(|_| "loading the model failed")??;
         let llm = Llm::with_model(weights, 2048, threads)?;
-        timing("context", started);
+        timing(&format!("context ({} threads)", threads.unwrap_or_else(lxask_llm::default_threads)), started);
         Ok(Loaded { llm: RefCell::new(llm), retriever, catalog })
     }
 

@@ -4,6 +4,7 @@
 #   sh install.sh                 # download the release (gh, or a token for a private repo)
 #   sh install.sh --from DIR      # offline: the release files already copied into DIR
 #   sh install.sh --serve | --no-serve   # answer the "keep lxask loaded?" question
+#   sh install.sh --skip-memory-check   # install with under 1.3 GB of memory anyway
 #
 # lxask is one program (Linux on x86_64 or ARM64, glibc 2.28 or newer: Debian 10, Ubuntu
 # 18.10, RHEL 8 and later); nothing else is installed. Downloading uses gh when it is
@@ -18,21 +19,23 @@ set -eu
 
 # LINU_*: the same settings as named up to 0.8, when lxask was called linu
 REPO=${LXASK_REPO:-${LINU_REPO:-arxhr007/lxask}}
-TAG=${LXASK_TAG:-${LINU_TAG:-v1.5.0}}  # release_files.sh checks this is the version released
+TAG=${LXASK_TAG:-${LINU_TAG:-v1.5.1}}  # release_files.sh checks this is the version released
 DATA=${LXASK_HOME:-${LINU_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/lxask}}
 BIN=${LXASK_BIN:-${LINU_BIN:-$HOME/.local/bin}}
 FROM=""
 TEST=1
 SERVE=""  # auto or off: from --serve / --no-serve, else asked
+MEMCHECK=1
 
 while [ $# -gt 0 ]; do
     case $1 in
         --from) FROM=$2; shift 2 ;;
         --tag) TAG=$2; shift 2 ;;
         --no-test) TEST=0; shift ;;
+        --skip-memory-check) MEMCHECK=0; shift ;;
         --serve) SERVE=auto; shift ;;
         --no-serve) SERVE=off; shift ;;
-        -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
         *) echo "install.sh: unknown argument $1" >&2; exit 2 ;;
     esac
 done
@@ -73,8 +76,27 @@ case $(uname -s)/$(uname -m) in
         else
             PROGRAM=lxask-aarch64
         fi ;;
+    Linux/arm*) die "this is a 32-bit ARM system ($(uname -m)); lxask needs a 64-bit one (on a Raspberry Pi 4 or 5: Raspberry Pi OS (64-bit))" ;;
     *) die "lxask runs on Linux x86_64 and aarch64; this is $(uname -s) $(uname -m)" ;;
 esac
+# A 32-bit system on a 64-bit kernel (32-bit Raspberry Pi OS on a Pi 4 or 5 is one)
+# reports aarch64 above, but cannot run a 64-bit program
+if [ "$(getconf LONG_BIT 2>/dev/null)" = 32 ]; then
+    die "this is a 32-bit system on a 64-bit kernel; lxask needs a 64-bit one (on a Raspberry Pi: Raspberry Pi OS (64-bit))"
+fi
+# The model takes about 1.3 GB of memory while it answers: a board with 1 GB cannot hold
+# it, and swap is far too slow to make up the difference. A container's limit counts.
+MEM_KB=$(sed -n 's/^MemTotal: *\([0-9]*\) kB$/\1/p' /proc/meminfo 2>/dev/null || true)
+for limit in /sys/fs/cgroup/memory.max /sys/fs/cgroup/memory/memory.limit_in_bytes; do
+    bytes=$(cat "$limit" 2>/dev/null || true)
+    case $bytes in
+        ''|*[!0-9]*) ;;
+        *) if [ -n "$MEM_KB" ] && [ $((bytes / 1024)) -lt "$MEM_KB" ]; then MEM_KB=$((bytes / 1024)); fi ;;
+    esac
+done
+if [ "$MEMCHECK" = 1 ] && [ -n "$MEM_KB" ] && [ "$MEM_KB" -lt 1310720 ]; then
+    die "this machine has $((MEM_KB / 1024)) MB of memory; lxask needs about 1.3 GB free while it answers (a Raspberry Pi needs 2 GB or more). --skip-memory-check installs anyway"
+fi
 if ldd --version 2>&1 | grep -qi musl; then
     die "this system uses musl libc (Alpine?); lxask's builds need glibc"
 fi

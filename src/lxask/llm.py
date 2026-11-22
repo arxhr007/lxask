@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import platform
 from pathlib import Path
 
 from . import _core, config
@@ -14,8 +15,21 @@ SAMPLE_TEMPERATURE = 0.7  # for another try at an answer the checks objected to
 
 
 def default_threads() -> int:
-    # llama.cpp scales with physical cores; hyperthreads mostly add contention.
-    return max(1, (os.cpu_count() or 2) // 2)
+    """One thread per core, as the Rust lxask: every CPU on a machine without
+    hyperthreads (unless it is an x86 virtual machine, whose CPUs may be the host's
+    hyperthreads), else, or where Linux does not say, half of them."""
+    logical = os.cpu_count() or 2
+    try:
+        lists = [p.read_text() for p in Path("/sys/devices/system/cpu").glob("cpu[0-9]*/topology/thread_siblings_list")]
+        x86_guest = platform.machine().lower() in ("x86_64", "amd64", "i686", "i386") and any(
+            line.startswith("flags") and "hypervisor" in line.split()
+            for line in Path("/proc/cpuinfo").read_text().splitlines()
+        )
+    except OSError:
+        lists, x86_guest = [], True
+    if lists and not any("," in s or "-" in s for s in lists) and not x86_guest:
+        return logical
+    return max(1, logical // 2)
 
 
 def gpu_layers() -> int:
