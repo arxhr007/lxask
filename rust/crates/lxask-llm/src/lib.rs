@@ -38,13 +38,59 @@ pub const SAMPLE_TEMPERATURE: f32 = 0.7;
 const PENALTY_LAST_N: i32 = 64;
 const N_BATCH: u32 = 512;
 
-/// llama.cpp scales with physical cores; hyperthreads mostly add contention.
+/// One thread per core: llama.cpp scales with cores, and a core's second hyperthread
+/// mostly adds contention. A machine without hyperthreads (a Raspberry Pi, most ARM
+/// boards, some x86 CPUs) gets every CPU: on four separate cores, four threads wrote
+/// replies 1.4 times as fast as two. One with them, or where Linux does not say, half.
 pub fn default_threads() -> i32 {
-    (logical_cpus() / 2).max(1)
+    let logical = logical_cpus();
+    match hyperthreaded() {
+        Some(false) if !x86_guest() => logical,
+        _ => (logical / 2).max(1),
+    }
+}
+
+/// An x86 virtual machine, whose CPUs may be the host's hyperthreads though it shows no
+/// siblings: one thread per CPU on hyperthreads wrote replies 4.6 times slower than one
+/// per core (16 against 8 threads on an 8-core Ryzen).
+fn x86_guest() -> bool {
+    cfg!(any(target_arch = "x86_64", target_arch = "x86"))
+        && std::fs::read_to_string("/proc/cpuinfo").map_or(true, |info| {
+            info.lines()
+                .filter(|line| line.starts_with("flags"))
+                .any(|line| line.split_whitespace().any(|flag| flag == "hypervisor"))
+        })
 }
 
 fn logical_cpus() -> i32 {
     std::thread::available_parallelism().map(|n| n.get() as i32).unwrap_or(2)
+}
+
+/// Whether some core runs more than one CPU, from Linux's topology files; None when
+/// there are none to read.
+fn hyperthreaded() -> Option<bool> {
+    let lists = std::fs::read_dir("/sys/devices/system/cpu").ok()?.filter_map(|entry| {
+        let name = entry.ok()?.file_name().into_string().ok()?;
+        let number = name.strip_prefix("cpu")?;
+        if number.is_empty() || !number.bytes().all(|b| b.is_ascii_digit()) {
+            return None;
+        }
+        std::fs::read_to_string(format!("/sys/devices/system/cpu/{name}/topology/thread_siblings_list")).ok()
+    });
+    shares_cores(lists)
+}
+
+/// A CPU's thread_siblings_list names the CPUs on its core: "3" alone, "0-1" or "0,8"
+/// with a hyperthread.
+fn shares_cores(lists: impl IntoIterator<Item = String>) -> Option<bool> {
+    let mut seen = false;
+    for list in lists {
+        if list.trim().contains([',', '-']) {
+            return Some(true);
+        }
+        seen = true;
+    }
+    seen.then_some(false)
 }
 
 /// 0 on the machines lxask is for. LXASK_GPU_LAYERS=-1 offloads everything (a build with
@@ -378,5 +424,24 @@ impl Embedder {
             self.ctx.clear_kv_cache();
         }
         Ok(vectors)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hyperthreads_from_sibling_lists() {
+        let lists = |items: &[&str]| items.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        // a Raspberry Pi: four cores, one CPU each
+        assert_eq!(shares_cores(lists(&["0\n", "1\n", "2\n", "3\n"])), Some(false));
+        // x86 with hyperthreads, numbered as Intel and as AMD do
+        assert_eq!(shares_cores(lists(&["0,4\n", "1,5\n", "2,6\n", "3,7\n"])), Some(true));
+        assert_eq!(shares_cores(lists(&["0-1\n", "0-1\n", "2-3\n", "2-3\n"])), Some(true));
+        // hyperthreads switched off for some cores only still count
+        assert_eq!(shares_cores(lists(&["0\n", "1,9\n"])), Some(true));
+        // nothing to read: unknown, so default_threads keeps half
+        assert_eq!(shares_cores(lists(&[])), None);
     }
 }
