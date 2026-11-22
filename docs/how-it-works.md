@@ -40,8 +40,10 @@ the task, and nothing else.
 The command is checked without running it:
 
 - **Against the documentation.** The program exists, every option is documented for
-  it, the subcommand after `systemctl` and its kin is real, the line parses as
-  shell, and it is not a macOS or BSD form (`top -l`, `sed -i ''`, `pbcopy`).
+  it and gets its value when it needs one (`findmnt --types` alone does not), the
+  subcommand after `systemctl` and its kin is real, the line parses as shell, the
+  script in `sh -c '...'` is checked the same way (and has no bash-only `[[ ]]`), and
+  it is not a macOS or BSD form (`top -l`, `sed -i ''`, `pbcopy`).
 - **Against the task.** The paths, extensions, sizes, ages, counts and ports the task
   names must appear in the command, in any form a command can write them: 30 days
   is `-mtime +30`, `-mmin +43200` or `--since '30 days ago'`.
@@ -57,6 +59,17 @@ Slips with exactly one right fix are repaired instead: `head -n 1` after `ps` (t
 is only the header) becomes `head -n 2`; `grep` on a directory gets `-r`; a bare
 crontab line is installed with `crontab`; a command that always needs root gets
 `sudo`; another distribution's package listing or search becomes this machine's.
+
+### What the check cannot tell you
+
+A command can pass every check and still not do what you asked: each option is real,
+but not the right one (`sort | uniq -c` counts lines when you wanted words), or a
+pipeline is valid but takes the wrong column. The checks catch commands that cannot
+work, not ones that work differently from what you meant. How often the command does
+the job is what the sandbox numbers in [accuracy.md](accuracy.md) measure. And where
+a subcommand has no man page in the index (`docker run`, `kubectl get`), the options
+after it are not checked at all. So read a command before you run it, also one with
+no `unverified:` line.
 
 ### Restrictions
 

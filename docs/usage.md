@@ -38,12 +38,18 @@ Common `unverified` lines:
 |---|---|
 | `top: -l is not a documented option` | the option is not in the program's manual |
 | `systemctl: inspect is not a documented command` | no such subcommand in the manual |
+| `findmnt: --types needs a value and has none` | the option takes a value, and the command ends there |
+| `sh -c: [[ ]] is bash syntax; ...` | the script uses bash syntax but runs in `sh` |
 | `foo: not a known Linux command` | no manual or tldr page knows the program |
 | `pbcopy: not a Linux command` | a macOS or BSD command |
 | `the request says '.log'; the command does not have it` | a detail you named is missing |
 | `the request says without lsof; the command uses it` | it used a program you ruled out |
 
 lxask has already tried up to three answers before showing one with such a line.
+
+No `unverified:` line means the programs and options are real and the line can run,
+not that it does what you meant: read it before you run it
+([what the check cannot tell you](how-it-works.md#what-the-check-cannot-tell-you)).
 
 ## Requests with several parts
 
