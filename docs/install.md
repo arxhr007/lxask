@@ -56,7 +56,9 @@ The script:
    2015), `lxask-x86_64` (older x86), `lxask-aarch64-dotprod` (ARM64 with the dot-product
    instructions, which `/proc/cpuinfo` lists as `asimddp`) or `lxask-aarch64`;
 2. downloads it with the model, its adapters, the encoder and the documentation
-   index, using curl, wget or a logged-in `gh`;
+   index, using curl, wget or a logged-in `gh`. On an upgrade, an installed file whose
+   checksum is the release's is kept as it is: when only the program and the index
+   change, that is about 80 MB instead of 1.1 GB;
 3. checks every file against `SHA256SUMS`;
 4. puts `lxask` in `~/.local/bin` and the rest in `~/.local/share/lxask`;
 5. asks whether to keep lxask loaded between questions, for answers in about 2 s
