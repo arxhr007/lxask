@@ -5,8 +5,8 @@
 #
 # Variants: x86_64-v3 (AVX2/FMA, nearly every x86 PC since 2015), x86_64 (SSE4.2, the
 # older ones), aarch64-dotprod (ARMv8.2-A with dot product and half-precision arithmetic:
-# Raspberry Pi 5 and CM5, Graviton, Apple and most ARM servers; prompt processing is about
-# twice as fast), aarch64 (ARMv8-A with NEON only: Raspberry Pi 4 and older), wheel
+# Raspberry Pi 5 and CM5, Graviton, Apple and most ARM servers; faster at reading the
+# prompt), aarch64 (ARMv8-A with NEON only: Raspberry Pi 4 and older), wheel
 # (lxask._core for training and evaluation, abi3 for Python 3.10+). Default: all five.
 #
 # Needs: rustup with the aarch64-unknown-linux-gnu target, cargo-zigbuild and zig
@@ -41,9 +41,11 @@ for variant in $VARIANTS; do
         x86_64) build x86_64 x86_64-unknown-linux-gnu x86-64-v2 ;;
         aarch64) build aarch64 aarch64-unknown-linux-gnu generic ;;
         # llama-cpp-sys-2 pins ggml's -march to armv8-a on aarch64, whatever GGML_CPU_ARM_ARCH
-        # says, so the features go in as -mcpu (zig's clang takes it after the -march)
+        # says, so the features go in through CFLAGS as -mcpu, which zig's clang keeps
         aarch64-dotprod)
-            CFLAGS_aarch64_unknown_linux_gnu="-mcpu=generic+dotprod+fullfp16"             CXXFLAGS_aarch64_unknown_linux_gnu="-mcpu=generic+dotprod+fullfp16"                 build aarch64-dotprod aarch64-unknown-linux-gnu generic ;;
+            CFLAGS_aarch64_unknown_linux_gnu="-mcpu=generic+dotprod+fullfp16" \
+            CXXFLAGS_aarch64_unknown_linux_gnu="-mcpu=generic+dotprod+fullfp16" \
+                build aarch64-dotprod aarch64-unknown-linux-gnu generic ;;
         wheel)
             echo "== wheel"
             (cd "$ROOT" && CARGO_TARGET_DIR=${TARGET_BASE:-$HOME/.cache/lxask-release-target}/wheel \

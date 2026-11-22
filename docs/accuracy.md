@@ -173,7 +173,8 @@ long.
 ### Where the time goes
 
 Most of an answer is the model reading its prompt, not writing the reply and not
-searching. `LXASK_TIMING=1` prints the split. On the laptop above, for "count the lines
+searching. `LXASK_TIMING=1` prints the split (with a server, on the server's stderr:
+`LXASK_TIMING=1 lxask --serve`). On the laptop above, for "count the lines
 in notes.txt", served (version 1.4.0):
 
 | | tokens | time |

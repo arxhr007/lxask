@@ -573,9 +573,9 @@ impl Loaded {
             self.catalog.as_ref(),
             if retry { Some(&mut resample as &mut answer::Resample) } else { None },
         );
+        let stats = llm.borrow_mut().take_stats(); // taken every time, so each answer counts its own
         if lxask_core::setting("TIMING").is_some() {
             let ((m, mt), (s, st)) = (model_time.get(), search_time.get());
-            let stats = llm.borrow_mut().take_stats();
             eprintln!("lxask: model {m} calls {:.2} s (prompt {} tokens {:.2} s, reply {} tokens {:.2} s), retrieval {s} calls {:.2} s",
                       mt.as_secs_f64(), stats.prompt_tokens, stats.prompt_secs, stats.reply_tokens, stats.reply_secs, st.as_secs_f64());
         }
