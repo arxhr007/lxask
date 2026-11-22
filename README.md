@@ -118,6 +118,12 @@ not re-run here. The gain over the untuned model comes from fine-tuning, not fro
 retrieval and retries around it, which change nothing on this set
 ([details](docs/accuracy.md#the-public-benchmark-nl2sh-alfa)).
 
+Why this base model: newer small models were tested untuned on the same benchmark, with
+the same three examples. Gemma 4 E2B solves **58%** (not a significant difference) but
+needs about 2.6 times the memory and is almost twice as slow; Ternary Bonsai 2 9B
+ties at **54%** but takes about 9 s per answer against 1 s on CPU; Qwen3.5-2B solves
+**43%** and LFM2.5-1.2B **21%** ([the numbers](docs/accuracy.md#why-qwen25-coder-15b)).
+
 We publish the misses too: [the mistakes from the examples run](docs/examples.md#where-it-slipped-same-run)
 and [every measurement](docs/accuracy.md).
 
