@@ -121,6 +121,56 @@ To reproduce: `scripts/nl2sh_alfa_answers.py` makes the answers (variants `lxask
 with `icalfa` 0.3.6 (Docker, plus an Ollama server with `mxbai-embed-large`), and
 `scripts/nl2sh_alfa_stats.py` prints the tables above.
 
+## Why Qwen2.5-Coder-1.5B
+
+Newer small models come out often, so the base model was tested against them, all
+untuned, on the same NL2SH-ALFA test (300 tasks, the same harness and judge), asked the
+same way as the strongest baseline above: the plain instruction plus three worked
+examples. All are 4-bit (Q4_K_M) builds except Bonsai, which is ternary (its PQ2_0 file).
+Qwen3.5 was asked in its non-thinking mode, the way lxask would ask it. These were
+scored on 2026-11-21 and 22, and the Qwen2.5-Coder answers were scored again with them:
+the same answers as above got 164 that time against 162 then, so the table compares
+like with like.
+
+| untuned model | solved (three examples) | vs Qwen2.5-Coder, paired | on the 237 tasks outside its training sources | file |
+|---|---|---|---|---|
+| Gemma 4 E2B | 175/300 (58.3%) | +34 / -23, p = 0.19 | 137 (57.8%) | 3.1 GB |
+| **Qwen2.5-Coder-1.5B** | **164/300 (54.7%)** | | **129 (54.4%)** | **1.1 GB** |
+| Ternary Bonsai 2 9B | 163/300 (54.3%) | +33 / -34, p = 1.0 | 130 (54.9%) | 2.4 GB |
+| Qwen3.5-2B | 130/300 (43.3%) | +23 / -57, p < 0.001 | 104 (43.9%) | 1.3 GB |
+| LFM2.5-1.2B | 63/300 (21.0%) | +8 / -109, p < 0.001 | 56 (23.6%) | 0.7 GB |
+
+("+34 / -23": tasks the other model solves and Qwen2.5-Coder misses, and the reverse;
+exact McNemar, two-sided.) Only Gemma 4 E2B scores higher, by 11 tasks out of 300, and
+that difference is not significant. Bonsai 2 9B ties.
+
+Speed and memory on the CPU lxask is measured on (Ryzen 9 270, 8 threads, no GPU), 20 of
+the test requests, the same three-example prompt:
+
+| untuned model | per answer (mean) | peak memory (resident) | loading, files cached |
+|---|---|---|---|
+| **Qwen2.5-Coder-1.5B** | **1.0 s** | **1264 MiB** | **about 6 s** |
+| LFM2.5-1.2B | 1.6 s | 840 MiB | not measured |
+| Gemma 4 E2B | 1.8 s | 3354 MiB | 16-20 s |
+| Qwen3.5-2B | 2.5 s | 1480 MiB | not measured |
+| Ternary Bonsai 2 9B | about 9 s | 2819 MiB | 20-45 s |
+
+Bonsai runs only on PrismML's own llama.cpp build (its llama-server, with its prompt cache
+off), so its row is from that program; the others are from llama.cpp through
+llama-cpp-python.
+
+So: Gemma 4 E2B may be slightly better, but needs about 2.6 times the memory and takes
+almost twice as long; Bonsai 2 9B is as good, but about 9 times slower and needs a
+separate build of llama.cpp; Qwen3.5-2B and LFM2.5-1.2B solve fewer tasks (LFM's licence
+also limits commercial use). lxask's own model is Qwen2.5-Coder-1.5B after fine-tuning,
+which is what lifts it from 54-55% to 62%; a fine-tuned Gemma 4 E2B has not been tried.
+
+Without the examples (plain instruction, backticks and `$ ` removed from the reply),
+Bonsai solves 174, Gemma 170, Qwen2.5-Coder 153, Qwen3.5 114 and LFM 69: the newer models
+follow the plain instruction's format better. That matters less for lxask: its prompt
+carries the retrieved notes, and fine-tuning teaches its model to reply with a bare
+command.
+
 ## Known limits
 
 A small model has edges, and lxask is built around knowing where they are:
