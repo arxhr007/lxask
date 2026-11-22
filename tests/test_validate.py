@@ -105,6 +105,36 @@ def test_man_option_docs_skips_prose_lines_that_start_with_an_option():
     ]
 
 
+def test_man_option_docs_follows_prose_down_lines_that_each_start_with_an_option():
+    # lsof(1): two wrapped prose lines in a row start with an option. The second is not
+    # the -i heading, whose description is "+|-L, -o, ..." only by accident of the wrap.
+    page = (
+        "       Options  may be grouped together following a single prefix -- e.g., the option set ``-a -b\n"
+        "       -C'' may be stated as -abC.  However, since values are optional following  +|-f,  -F,  -g,\n"
+        "       -i,  +|-L,  -o,  +|-r, -s, -S, -T, -x and -z.  when you have no values for them be careful\n"
+        "       that the following character isn't ambiguous.\n"
+        "\n"
+        "       -i [i]   selects the listing of files any of whose Internet address  matches  the  address\n"
+        "                specified  in  i.\n"
+    )
+    docs = list(man_option_docs(page))
+    assert [title for title, text in docs if not text] == ["-C'' may be stated as -abC.", "-i,"]
+    assert [(title, text) for title, text in docs if text] == [
+        ("-i [i]", "selects the listing of files any of whose Internet address matches the address specified in i.")]
+
+
+def test_man_option_docs_keeps_short_list_items_after_a_prose_line():
+    # One item taken for prose (it follows a sentence at its indent) must not turn the
+    # rest of the list into prose: short lines are list items, not wrapped prose.
+    page = (
+        "       The options are\n"
+        "       -a     all entries\n"
+        "       -b     brief\n"
+        "       -c     count\n"
+    )
+    assert [(title, text) for title, text in man_option_docs(page) if text] == [("-b", "brief"), ("-c", "count")]
+
+
 def test_simple_commands_splits_pipelines_lists_and_substitutions():
     assert simple_commands("ps aux | sort -k3 && echo done") == [["ps", "aux"], ["sort", "-k3"], ["echo", "done"]]
     assert simple_commands("ls -la $(pwd) -h") == [["ls", "-la", "$", "-h"], ["pwd"]]
