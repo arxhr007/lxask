@@ -38,6 +38,7 @@ The program itself is `~/.local/bin/lxask`.
 | `LXASK_GPU_LAYERS` | `0` | model layers on the GPU; only builds with a GPU backend (the releases are CPU only) |
 | `LXASK_TIMING` | unset | set: print how long each start-up stage took and, for each answer, how its time split between reading the prompt, writing the reply and retrieval (the process that answers prints it: with a server, set it for `lxask --serve`) |
 | `LXASK_SERVE` | the `serve` setting | `auto`: keep lxask loaded between questions; `off`: load it for each |
+| `LXASK_IDLE` | the `idle` setting, else `30` | minutes without a question before the server stops (`0`: never); `--idle` overrides it |
 | `LXASK_SERVER` | the `server` setting | `host:port` of another machine's `lxask --serve --listen`, to ask it instead of a model here |
 | `LXASK_TOKEN` | the `token` setting, else `$LXASK_HOME/token` | the token for `--listen`, or for asking `LXASK_SERVER` |
 
@@ -60,6 +61,17 @@ serve = auto      # keep lxask loaded between questions; off: load it for each q
 `serve = auto` starts lxask in the background on the first question and stops it after
 30 minutes without one ([usage.md](usage.md#keep-the-model-loaded)). Running the
 installer again keeps your choice; `sh install.sh --serve` or `--no-serve` changes it.
+
+To change the 30 minutes, add an `idle` line (you write this one; the installer keeps it):
+
+```ini
+idle = 10         # stop after 10 minutes without a question; 0: never stop
+```
+
+It applies to every server started on this machine, by a question or by
+`lxask --serve`, except one started with `--listen`, which stops when idle only if
+`--idle` says so. `--idle MINUTES` on the command line overrides it, and a change takes
+effect from the next start (`lxask --stop` to restart now).
 
 On a machine that asks another one's server
 ([usage.md](usage.md#one-model-for-several-machines-or-containers)), two more lines do
