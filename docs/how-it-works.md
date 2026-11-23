@@ -44,6 +44,16 @@ The command is checked without running it:
   subcommand after `systemctl` and its kin is real, the line parses as shell, the
   script in `sh -c '...'` is checked the same way (and has no bash-only `[[ ]]`), and
   it is not a macOS or BSD form (`top -l`, `sed -i ''`, `pbcopy`).
+
+  The index holds the man pages of the Ubuntu machine it was built on, and yours may
+  have other versions. So where your machine has the program's man page installed
+  (sections 1 and 8), that page decides its options instead: an option only a newer
+  version has is flagged (`not in this machine's manual (another version of ls has
+  it)`), one only your version has passes, and a program the index never saw (from a
+  package its machine did not have) is known. Each page is read with `groff` (or `mandoc`) the first time a
+  command uses it, which adds about 70 ms per program; a running server keeps them. A
+  machine without man pages (most containers) is checked against the index alone.
+  `LXASK_LOCAL_MAN=off` turns this off.
 - **Against the task.** The paths, extensions, sizes, ages, counts and ports the task
   names must appear in the command, in any form a command can write them: 30 days
   is `-mtime +30`, `-mmin +43200` or `--since '30 days ago'`.
@@ -98,7 +108,8 @@ proxy" with no word on where), lxask asks which one is meant instead of guessing
 ## 5. Explain
 
 Each program and option in the command is looked up in the tldr summaries and the
-man pages. Where the documentation says nothing, nothing is printed.
+man pages, your machine's own first. Where the documentation says nothing, nothing is
+printed.
 
 ## 6. Warn
 

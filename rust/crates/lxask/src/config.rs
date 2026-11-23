@@ -1,6 +1,6 @@
 //! Where the model and the docs index live.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub const MODEL_FILENAME: &str = "model.gguf";
 pub const EMBED_FILENAME: &str = "embed.gguf";
@@ -105,6 +105,24 @@ fn setting(env_var: &str, key: &str) -> Option<String> {
 /// settings install.sh writes, or LXASK_SERVE=auto|off); off when nothing says so.
 pub fn serve_auto() -> bool {
     setting("LXASK_SERVE", "serve").as_deref().and_then(truthy).unwrap_or(false)
+}
+
+/// Whether commands are also checked against this machine's own manual pages
+/// (LXASK_LOCAL_MAN=off or `local_man = off` turns it off); on when nothing says so.
+pub fn local_man() -> bool {
+    setting("LXASK_LOCAL_MAN", "local_man").as_deref().and_then(truthy).unwrap_or(true)
+}
+
+/// The catalogue in the index at `index`, reading this machine's manual pages too
+/// unless that is turned off.
+pub fn catalog(index: &Path) -> Option<lxask_core::validate::Catalog> {
+    let mut catalog = lxask_core::validate::load_catalog(index)?;
+    if local_man() {
+        let index = index.to_path_buf();
+        let examples = move |program: &str| lxask_core::validate::example_commands(&index, program);
+        catalog.read_local_pages(lxask_core::manpage::page_text, std::sync::Arc::new(examples));
+    }
+    Some(catalog)
 }
 
 /// How many minutes without a question before a server stops (0: never), from

@@ -215,8 +215,9 @@ The model-written data was kept out of the public repository when it first opene
 added on 2026-10-21, so the model can now be retrained and every number re-measured from a clone.
 How it was made and filtered: [Development](docs/development.md).
 
-Documentation index used for answers: tldr-pages (CC BY 4.0) and the man pages on your
-machine, each under its own licence.
+Documentation index used for answers: tldr-pages (CC BY 4.0) and the man pages of an
+Ubuntu installation, each under its own licence. Commands are also checked against the
+man pages installed on your machine, where it has them.
 
 Details for each part: [NOTICE](NOTICE).
 

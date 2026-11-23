@@ -16,7 +16,7 @@ use serde_json::{json, Value};
 use lxask_core::answer::{self, Step};
 use lxask_core::prompt::{format_context, Doc, Message, MAX_CONTEXT_CHARS};
 use lxask_core::retrieve::{Embed, Retriever, N_COMMANDS, OTHER_EXAMPLES, TOP_EXAMPLES};
-use lxask_core::validate::{load_catalog, Catalog};
+use lxask_core::validate::Catalog;
 use lxask_core::Error;
 use lxask_llm::{Embedder, Llm};
 
@@ -409,7 +409,7 @@ fn explain_command(command: &str) -> ExitCode {
         eprintln!("lxask: no docs index at {} (set LXASK_INDEX, or run install.sh)", index.display());
         return ExitCode::from(2);
     }
-    let Some(catalog) = load_catalog(&index) else {
+    let Some(catalog) = config::catalog(&index) else {
         eprintln!("lxask: the index at {} has no catalogue to explain from", index.display());
         return ExitCode::from(1);
     };
@@ -537,7 +537,7 @@ impl Loaded {
         let mut retriever = None;
         let mut catalog = None;
         if index.exists() {
-            catalog = load_catalog(&index);
+            catalog = config::catalog(&index);
             if catalog.is_none() {
                 eprintln!("lxask: this index has no catalogue; commands are not checked or explained");
             }
