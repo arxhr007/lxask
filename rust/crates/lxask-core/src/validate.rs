@@ -8,6 +8,7 @@ use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::path::Path;
 use std::process::{Command, Stdio};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use rusqlite::{Connection, OpenFlags};
@@ -223,6 +224,71 @@ fn names_an_argument(rest: &str) -> bool {
     !prose && !words.iter().any(|word| word.starts_with('-'))
 }
 
+/// One manual page as this machine has it.
+#[derive(Debug, Default)]
+pub struct LocalPage {
+    /// option -> takes a separate argument
+    pub options: HashMap<String, bool>,
+    /// option -> what the page says it does
+    pub texts: HashMap<String, String>,
+    pub summary: Option<String>,
+}
+
+impl LocalPage {
+    /// Page `page` read the way the index reads one (`Catalog::add_option_title`),
+    /// widened by the options its program's tldr `examples` use, as the index's is
+    /// (`Catalog::add_example`): `gcc --output`, which gcc's manual never lists.
+    pub fn from_text(page: &str, text: &str, examples: &[String]) -> LocalPage {
+        let mut catalog = Catalog::default();
+        for (title, description) in crate::manpage::option_docs(text) {
+            catalog.add_option_title(page, &title, &description);
+        }
+        catalog.options.entry(page.to_string()).or_default();
+        for example in examples {
+            catalog.add_example(example);
+        }
+        LocalPage {
+            options: catalog.options.remove(page).unwrap_or_default(),
+            texts: catalog.texts.remove(page).unwrap_or_default(),
+            summary: crate::manpage::summary(text),
+        }
+    }
+}
+
+type PageReader = fn(&str) -> Option<String>;
+/// A program -> the documented example commands that may use it (from the index).
+pub type ExampleReader = Arc<dyn Fn(&str) -> Vec<String> + Send + Sync>;
+
+/// The manual pages installed on this machine, read when a command first uses a page and
+/// kept. Off unless `Catalog::read_local_pages` turns it on (the program does; tests and
+/// the index builder do not).
+#[derive(Default)]
+pub struct LocalPages {
+    read: Option<PageReader>,
+    examples: Option<ExampleReader>,
+    pages: Mutex<HashMap<String, Option<Arc<LocalPage>>>>,
+}
+
+impl Clone for LocalPages {
+    fn clone(&self) -> LocalPages {
+        let pages = self.pages.lock().map(|pages| pages.clone()).unwrap_or_default();
+        LocalPages { read: self.read, examples: self.examples.clone(), pages: Mutex::new(pages) }
+    }
+}
+
+impl std::fmt::Debug for LocalPages {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LocalPages").field("on", &self.read.is_some()).finish_non_exhaustive()
+    }
+}
+
+/// What was read from this machine is a cache, not part of what a catalogue is.
+impl PartialEq for LocalPages {
+    fn eq(&self, _: &LocalPages) -> bool {
+        true
+    }
+}
+
 /// What the documentation knows: program names, and each program's options.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Catalog {
@@ -237,9 +303,56 @@ pub struct Catalog {
     pub summaries: HashMap<String, String>,
     /// program -> the verbs its man page lists under COMMANDS (VERB_PROGRAMS only)
     pub subcommands: HashMap<String, HashSet<String>>,
+    /// this machine's own pages, which win over the index's for the options they list
+    pub local: LocalPages,
 }
 
 impl Catalog {
+    /// Check against this machine's manual pages too, read with `read` (a page name to
+    /// its rendered text): where one is installed and lists options, its options replace
+    /// the index's for that page, so an option of a newer or older version than the
+    /// index's is judged by the version installed here.
+    /// `examples` gives the documented example commands for a program, whose options
+    /// count as documented as they do in the index.
+    pub fn read_local_pages(&mut self, read: PageReader, examples: ExampleReader) {
+        self.local = LocalPages { read: Some(read), examples: Some(examples), pages: Mutex::new(HashMap::new()) };
+    }
+
+    /// This machine's page called `page`, read once.
+    pub fn local_page(&self, page: &str) -> Option<Arc<LocalPage>> {
+        let read = self.local.read?;
+        let mut pages = self.local.pages.lock().ok()?;
+        pages
+            .entry(page.to_string())
+            .or_insert_with(|| {
+                let text = read(page)?;
+                let examples = self.local.examples.as_ref().map(|examples| examples(page)).unwrap_or_default();
+                Some(Arc::new(LocalPage::from_text(page, &text, &examples)))
+            })
+            .clone()
+    }
+
+    /// Whether `name` is a program the index or this machine's manual knows.
+    pub fn knows(&self, name: &str) -> bool {
+        self.programs.contains(name) || self.local_page(name).is_some()
+    }
+
+    /// The options of `page`: this machine's page when it lists enough of them to judge
+    /// by, else the index's. Only where the index judges the page's options too, or does
+    /// not know the program at all: a page the index has no options from (perl(1), whose
+    /// options are in perlrun(1)) is one to leave unjudged, whatever its prose mentions.
+    fn page_options(&self, page: &str, local: bool) -> Option<std::borrow::Cow<'_, HashMap<String, bool>>> {
+        let index = self.options.get(page);
+        let index_judges = index.is_some_and(|options| options.len() >= MIN_OPTIONS);
+        if local && (index_judges || !self.programs.contains(page)) {
+            if let Some(found) = self.local_page(page) {
+                if found.options.len() >= MIN_OPTIONS {
+                    return Some(std::borrow::Cow::Owned(found.options.clone()));
+                }
+            }
+        }
+        index.map(std::borrow::Cow::Borrowed)
+    }
     /// `name` is a page name: `tar`, or `git commit` for a subcommand's page.
     pub fn add_program(&mut self, name: &str) {
         let words = py::split_ws(name);
@@ -345,8 +458,10 @@ impl Catalog {
     /// What the manual says `flag` does for this use of `name`, or "".
     pub fn text_for(&self, name: &str, arguments: &[String], flag: &str) -> String {
         for page in self.pages_for(name, arguments).iter().rev() {
-            // the subcommand's page knows best
-            if let Some(text) = self.texts.get(page).and_then(|t| t.get(flag)) {
+            // the subcommand's page knows best, and this machine's copy of it better still
+            let local = self.local_page(page);
+            let local_text = local.as_ref().and_then(|p| p.texts.get(flag)).filter(|t| !t.is_empty());
+            if let Some(text) = local_text.or_else(|| self.texts.get(page).and_then(|t| t.get(flag))) {
                 if !text.is_empty() {
                     return text.clone();
                 }
@@ -361,7 +476,11 @@ impl Catalog {
                 return summary.clone();
             }
         }
-        self.summaries.get(name).cloned().unwrap_or_default()
+        self.summaries
+            .get(name)
+            .cloned()
+            .or_else(|| self.local_page(name).and_then(|page| page.summary.clone()))
+            .unwrap_or_default()
     }
 
     /// Options used in a documented example count as documented.
@@ -383,10 +502,19 @@ impl Catalog {
 
     /// The options documented for `name`, or None when there is nothing to check against.
     pub fn options_for(&self, name: &str, arguments: &[String]) -> Option<HashMap<String, bool>> {
+        self.merged_options(name, arguments, true)
+    }
+
+    /// `options_for` from the index alone, not this machine's pages.
+    pub fn index_options_for(&self, name: &str, arguments: &[String]) -> Option<HashMap<String, bool>> {
+        self.merged_options(name, arguments, false)
+    }
+
+    fn merged_options(&self, name: &str, arguments: &[String], local: bool) -> Option<HashMap<String, bool>> {
         let mut merged: HashMap<String, bool> = HashMap::new();
         for page in self.pages_for(name, arguments) {
-            if let Some(options) = self.options.get(&page) {
-                for (flag, takes_argument) in options {
+            if let Some(options) = self.page_options(&page, local) {
+                for (flag, takes_argument) in options.iter() {
                     let entry = merged.entry(flag.clone()).or_insert(false);
                     *entry = *entry || *takes_argument;
                 }
@@ -693,7 +821,7 @@ fn walk(tokens: &[String], catalog: &Catalog, out: &mut Vec<Use>) {
         out.push(simple("not-linux"));
         return;
     }
-    if !catalog.programs.contains(name) && !BUILTINS.contains(&name) {
+    if !BUILTINS.contains(&name) && !catalog.knows(name) {
         out.push(simple("unknown"));
         return;
     }
@@ -841,7 +969,16 @@ pub fn check(command: &str, catalog: &Catalog, syntax: bool) -> Vec<Issue> {
         }
         for (written, flags) in &use_.options {
             if flags.is_none() {
-                issues.push(issue("undocumented-option", format!("{name}: {written} is not a documented option")));
+                // the index's version of the page has it, this machine's does not
+                let elsewhere = catalog
+                    .index_options_for(name, &use_.arguments)
+                    .is_some_and(|options| resolve(written, &options, name).0.is_some());
+                let detail = if elsewhere {
+                    format!("{name}: {written} is not in this machine's manual (another version of {name} has it)")
+                } else {
+                    format!("{name}: {written} is not a documented option")
+                };
+                issues.push(issue("undocumented-option", detail));
             }
         }
         for written in use_.missing_value.iter().filter(|written| ends_a_command(command, name, written)) {
@@ -942,6 +1079,16 @@ pub fn save_catalog(db_path: &Path, catalog: &Catalog) -> rusqlite::Result<()> {
         }
     }
     tx.commit()
+}
+
+/// The tldr example commands in the index at `db_path` that mention `program` (for
+/// `Catalog::read_local_pages`); add_example keeps the ones it runs.
+pub fn example_commands(db_path: &Path, program: &str) -> Vec<String> {
+    let Ok(con) = open_read_only(db_path) else { return Vec::new() };
+    let Ok(mut rows) = con.prepare("SELECT body FROM docs WHERE source = 'tldr' AND instr(body, ?1) > 0") else {
+        return Vec::new();
+    };
+    rows.query_map([program], |row| row.get::<_, String>(0)).map(|found| found.flatten().collect()).unwrap_or_default()
 }
 
 /// Open an index read-only, never creating it.
@@ -1050,6 +1197,67 @@ mod tests {
 
     fn flagged(command: &str) -> Vec<String> {
         check(command, &sample(), false).into_iter().map(|issue| issue.detail).collect()
+    }
+
+    /// This machine's pages: an older findmnt (no --types, a --list the index lacks) and
+    /// a program the index does not know at all.
+    fn installed_pages(page: &str) -> Option<String> {
+        let findmnt = "NAME\n       findmnt - find a filesystem\n\nOPTIONS\n       -l, --list\n              Use the list output format.\n\n       \
+                       -n, --noheadings\n              Do not print a header line.\n\n       -o, --output list\n              Define output columns.\n";
+        let rc_update = "NAME\n       rc-update - add and remove services to and from a runlevel\n\nOPTIONS\n       -a, --all\n              Update all runlevels.\n\n       \
+                         -s, --stack\n              Add a stacked runlevel.\n\n       -u, --update\n              Force an update of the dependency tree.\n";
+        match page {
+            "findmnt" => Some(findmnt.to_string()),
+            "rc-update" => Some(rc_update.to_string()),
+            _ => None,
+        }
+    }
+
+    /// The index: findmnt's manual (described options) and a tldr example's `--real`.
+    fn index_and_installed() -> Catalog {
+        let mut catalog = build_catalog(
+            ["findmnt", "lsof"],
+            [
+                ("findmnt", "-t, --types list", "Limit the set of printed filesystems."),
+                ("findmnt", "-o, --output list", "Define output columns."),
+                ("findmnt", "-n, --noheadings", "Do not print a header line."),
+                ("lsof", "-i [i]", ""), ("lsof", "-p s", ""), ("lsof", "-n", ""),
+            ],
+            ["findmnt --real"],
+            [],
+        );
+        let examples = |program: &str| if program == "findmnt" { vec!["findmnt --real".to_string()] } else { vec![] };
+        catalog.read_local_pages(installed_pages, Arc::new(examples));
+        catalog
+    }
+
+    fn flagged_here(command: &str) -> Vec<String> {
+        check(command, &index_and_installed(), false).into_iter().map(|issue| issue.detail).collect()
+    }
+
+    #[test]
+    fn this_machines_manual_decides_the_options() {
+        // the installed version has --list, which the index's does not
+        assert!(flagged("findmnt --list").contains(&"findmnt: --list is not a documented option".to_string()));
+        assert!(flagged_here("findmnt --list -n").is_empty());
+        // and lacks --types, which the index's has
+        assert_eq!(
+            flagged_here("findmnt --types ext4"),
+            vec!["findmnt: --types is not in this machine's manual (another version of findmnt has it)"]
+        );
+        assert_eq!(flagged_here("findmnt --bogus"), vec!["findmnt: --bogus is not a documented option"]);
+        // an option the index has only from a tldr example is not judged by the manual
+        assert!(flagged_here("findmnt --real").is_empty());
+        // a program only this machine documents is known, and its options are checked
+        assert_eq!(flagged("rc-update -u"), vec!["rc-update: not a known Linux command"]);
+        assert!(flagged_here("rc-update -u").is_empty());
+        assert_eq!(flagged_here("rc-update --frobnicate"), vec!["rc-update: --frobnicate is not a documented option"]);
+        // pages that are not installed fall back to the index
+        assert!(flagged_here("lsof -n -i :80").is_empty());
+        // and the explanation comes from the installed page
+        let catalog = index_and_installed();
+        assert_eq!(catalog.text_for("findmnt", &["-l".into()], "-l"), "Use the list output format.");
+        assert_eq!(catalog.summary_for("rc-update", &[]), "add and remove services to and from a runlevel");
     }
 
     #[test]

@@ -37,6 +37,7 @@ Common `unverified` lines:
 | line | means |
 |---|---|
 | `top: -l is not a documented option` | the option is not in the program's manual |
+| `ls: --zero is not in this machine's manual (another version of ls has it)` | your installed version does not have the option |
 | `systemctl: inspect is not a documented command` | no such subcommand in the manual |
 | `findmnt: --types needs a value and has none` | the option takes a value, and the command ends there |
 | `sh -c: [[ ]] is bash syntax; ...` | the script uses bash syntax but runs in `sh` |

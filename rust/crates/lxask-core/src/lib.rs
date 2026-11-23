@@ -9,6 +9,7 @@ pub mod clarify;
 pub mod constraints;
 pub mod explain;
 pub mod looped;
+pub mod manpage;
 pub mod prompt;
 pub mod retrieve;
 pub mod route;
