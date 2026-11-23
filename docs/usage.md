@@ -173,8 +173,8 @@ whether to keep lxask loaded between questions (recommended, and the default):
 - **On (`serve = auto`):** your first question starts lxask in the background and is
   answered by it; later questions take about 2 s instead of about 7
   ([accuracy.md](accuracy.md#speed)). It holds about 1.3 GB of memory while loaded and
-  stops itself after 30 minutes without a question, so the next question starts it
-  again.
+  stops itself after 30 minutes without a question (`idle = 10` in the settings for 10,
+  `idle = 0` for never), so the next question starts it again.
 - **Off (`serve = off`):** every question loads the model and frees it after.
 
 Change it in `~/.local/share/lxask/settings`, or for one shell with `LXASK_SERVE=auto`
@@ -191,7 +191,9 @@ lxask --stop
 
 Every `lxask` call uses a running server when it can, and answers the same way. It
 listens on a socket only your user can open (`$XDG_RUNTIME_DIR/lxask/`, else
-`~/.local/share/lxask/run/`). `--idle MINUTES` changes the timeout (0: never stop).
+`~/.local/share/lxask/run/`). `--idle MINUTES` changes the timeout for this server (0:
+never stop); `idle = MINUTES` in the settings changes it for every server
+([configuration.md](configuration.md#settings)).
 
 To start it with your session, a systemd user unit:
 

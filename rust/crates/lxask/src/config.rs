@@ -107,6 +107,17 @@ pub fn serve_auto() -> bool {
     setting("LXASK_SERVE", "serve").as_deref().and_then(truthy).unwrap_or(false)
 }
 
+/// How many minutes without a question before a server stops (0: never), from
+/// LXASK_IDLE or `idle = ...` in the settings; Err with the text when it is not a number.
+/// `--idle` overrides it.
+pub fn idle_minutes() -> Option<Result<f64, String>> {
+    setting("LXASK_IDLE", "idle").map(|text| parse_minutes(&text).ok_or(text))
+}
+
+fn parse_minutes(text: &str) -> Option<f64> {
+    text.parse::<f64>().ok().filter(|n| n.is_finite() && *n >= 0.0)
+}
+
 /// Another machine's `lxask --serve --listen` to ask instead of a model here:
 /// LXASK_SERVER=host:port, or `server = host:port` in the settings.
 pub fn remote_server() -> Option<String> {
@@ -159,5 +170,16 @@ mod tests {
         assert_eq!(truthy("AUTO"), Some(true));
         assert_eq!(truthy("off"), Some(false));
         assert_eq!(truthy("sometimes"), None);
+    }
+
+    #[test]
+    fn idle_values() {
+        assert_eq!(settings_value("serve = auto\nidle = 10 # minutes\n", "idle").as_deref(), Some("10"));
+        assert_eq!(parse_minutes("10"), Some(10.0));
+        assert_eq!(parse_minutes("0"), Some(0.0));
+        assert_eq!(parse_minutes("0.5"), Some(0.5));
+        assert_eq!(parse_minutes("-1"), None);
+        assert_eq!(parse_minutes("10m"), None);
+        assert_eq!(parse_minutes("inf"), None);
     }
 }

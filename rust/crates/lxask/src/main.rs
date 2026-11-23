@@ -54,7 +54,8 @@ options:
   --threads THREADS  CPU threads (default: one per core)
   --serve            keep the model loaded and answer later questions quickly (holds about
                      1.4 GB of memory until stopped or idle)
-  --idle MINUTES     with --serve: stop after this many minutes without a question (0: never)
+  --idle MINUTES     with --serve: stop after this many minutes without a question (0: never;
+                     default: idle = in $LXASK_HOME/settings, else 30)
                      (with serve = auto in $LXASK_HOME/settings, or LXASK_SERVE=auto, the first
                      question starts the server itself)
   --listen HOST:PORT with --serve: also answer other machines over TCP (lxask --serve --listen
@@ -296,8 +297,17 @@ fn main() -> ExitCode {
     let mut broken = None;
     if !args.serve && args.model.is_none() && args.index.is_none() && args.threads.is_none() {
         let mut found = ask_server(&question, &args);
-        if matches!(found, Server::Missing) && config::serve_auto() && server::start_and_wait(server::START_TIMEOUT) {
-            found = ask_server(&question, &args);
+        if matches!(found, Server::Missing) && config::serve_auto() {
+            // the server it starts has no terminal to say this on
+            if let Some(Err(text)) = config::idle_minutes() {
+                eprintln!(
+                    "lxask: idle = {text} is not a number of minutes; stopping after {} min idle",
+                    minutes(server::IDLE_MINUTES)
+                );
+            }
+            if server::start_and_wait(server::START_TIMEOUT) {
+                found = ask_server(&question, &args);
+            }
         }
         if let Server::Broken(reason) = found {
             broken = Some(reason);
@@ -339,8 +349,25 @@ fn main() -> ExitCode {
     };
     let loaded = RefCell::new(loaded);
     if args.serve {
-        // a server other machines ask is not stopped by an idle spell unless told to be
-        let idle = if remote.is_some() && !args.idle_given { 0.0 } else { args.idle };
+        // --idle, else (for a server only this user asks) `idle =` in the settings; a
+        // server other machines ask is not stopped by an idle spell unless --idle says so
+        let idle = if args.idle_given {
+            args.idle
+        } else if remote.is_some() {
+            0.0
+        } else {
+            match config::idle_minutes() {
+                Some(Ok(minutes)) => minutes,
+                Some(Err(text)) => {
+                    eprintln!(
+                        "lxask: idle = {text} is not a number of minutes; stopping after {} min idle",
+                        minutes(args.idle)
+                    );
+                    args.idle
+                }
+                None => args.idle,
+            }
+        };
         let network = match (&remote, args.listen.as_deref()) {
             (Some(remote), Some(address)) => {
                 let at = remote.listener.local_addr().map(|a| a.to_string()).unwrap_or_else(|_| address.to_string());
