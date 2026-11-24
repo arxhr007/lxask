@@ -62,7 +62,8 @@ For fish, add `lxask --shell-init fish | source` to `~/.config/fish/config.fish`
 
 64-bit Linux on x86_64 or ARM64 with glibc 2.28+: Debian, Ubuntu, Fedora, Arch,
 openSUSE and most others, and a Raspberry Pi 4 or 5 with 2 GB or more
-([which boards](docs/install.md#raspberry-pi-and-other-small-boards)). More in
+([which boards](docs/install.md#raspberry-pi-and-other-small-boards)). On a Mac it is
+built from source ([macOS](docs/install.md#macos)); its answers are still Linux commands. More in
 [docs/install.md](docs/install.md), including how to check the installer against the
 release checksums first.
 

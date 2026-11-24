@@ -69,6 +69,8 @@ jobs:
         env:
           LXASK_HOME: ${{ runner.temp }}/lxask
           LXASK_BIN: ${{ runner.temp }}/bin
+        # the model and the rest from the latest release: a version change names one not made yet
         run: |
-          sh scripts/install.sh --program rust/target/release/lxask --no-serve
+          latest=$(curl -fsSLI -o /dev/null -w '%{url_effective}' "https://github.com/$GITHUB_REPOSITORY/releases/latest")
+          LXASK_TAG=${latest##*/} sh scripts/install.sh --program rust/target/release/lxask --no-serve
           "$LXASK_BIN/lxask" --explain "du -sh --max-depth 1"
