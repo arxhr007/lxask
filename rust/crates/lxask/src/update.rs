@@ -67,7 +67,7 @@ pub fn notice() -> Option<String> {
     }
     let (tag, _) = cache()?;
     newer(&tag, server::VERSION)
-        .then(|| format!("lxask: a newer release is out: {tag} (installed: {}); lxask --upgrade installs it", server::VERSION))
+        .then(|| format!("lxask: a newer release is out: {tag} (installed: {}); 'lxask --upgrade' installs it", server::VERSION))
 }
 
 /// Check once: ask GitHub for the latest release's tag and write it down. The time
