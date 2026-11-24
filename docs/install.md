@@ -70,8 +70,10 @@ services. Upgrading from linu also moves `~/.local/share/linu` (below).
 
 If `~/.local/bin` is not on your `PATH`, it says how to add it.
 
-Running it again upgrades. The previous program is kept as
-`~/.local/share/lxask/lxask.previous` and the previous model as `model.gguf.previous`.
+Running it again upgrades — `lxask --upgrade` does the same thing from inside the
+program (it fetches the newest release's install.sh and runs it). The previous
+program is kept as `~/.local/share/lxask/lxask.previous` and the previous model as
+`model.gguf.previous`.
 
 Options: `--tag v1.0.0` installs a given release (an older one, say), `--serve` / `--no-serve` answer
 the question above, `--no-test` skips the test question, and `LXASK_HOME` or `LXASK_BIN` install somewhere else.

@@ -23,7 +23,7 @@ use lxask_llm::{Embedder, Llm};
 
 const USAGE: &str = "usage: lxask [-h] [--about] [--explain COMMAND ...] [--bad] [--share [N]] [--shell-init SHELL] [--model MODEL] [--index INDEX] \
 [--no-rag] [--no-explain] [--command-only] [--show-context] [--no-retry] [--threads THREADS] [--serve] [--listen HOST:PORT] \
-[--idle MINUTES] [--stop] [--version] [question ...]";
+[--idle MINUTES] [--stop] [--upgrade] [--version] [question ...]";
 
 const HELP: &str = "\
 Ask how to do something on Linux. Prints commands; never runs them.
@@ -65,6 +65,7 @@ options:
                      this program installed: LXASK_SERVER=host:7871 LXASK_TOKEN=... lxask \"...\"
                      (or server = and token = in $LXASK_HOME/settings)
   --stop             stop a running server
+  --upgrade          install the newest release: fetches its install.sh and runs it
   --version          show program's version number and exit
 
 A request too vague for one command (\"add a proxy\": for this shell, Git, APT, ...?) gets
@@ -99,6 +100,8 @@ struct Args {
     command_only: bool,
     /// the detached worker of the release check (update::maybe_spawn_detached)
     update_check: bool,
+    /// fetch the newest release's install.sh and run it (update::upgrade)
+    upgrade: bool,
 }
 
 fn usage_error(message: &str) -> ExitCode {
@@ -141,6 +144,7 @@ fn parse(argv: &[String]) -> Parsed {
             "--serve" => args.serve = true,
             "--stop" => args.stop = true,
             "--update-check" => args.update_check = true,
+            "--upgrade" => args.upgrade = true,
             "--model" => match value("--model") {
                 Ok(v) => args.model = Some(PathBuf::from(v)),
                 Err(code) => return Parsed::Exit(code),
@@ -249,6 +253,9 @@ fn main() -> ExitCode {
         // a detached copy of this program does the day's release check (update.rs)
         update::run_and_write();
         return ExitCode::SUCCESS;
+    }
+    if args.upgrade {
+        return ExitCode::from(update::upgrade());
     }
     if question.is_empty() && !args.serve {
         return usage_error("say what you want to do, e.g. lxask \"show disk usage of each folder\"");

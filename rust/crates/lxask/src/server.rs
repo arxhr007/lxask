@@ -508,8 +508,21 @@ mod tests {
         std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
     }
 
+    /// A request tried again when the first connection does not get through —
+    /// these tests care about the reply, not about one connection always landing
+    /// at once on a busy machine.
+    fn retry(path: &Path, message: Value) -> Option<Value> {
+        for _ in 0..10 {
+            match request(message.clone(), Some(path), Duration::from_secs(10)) {
+                Ok(reply) => return Some(reply),
+                Err(_) => std::thread::sleep(Duration::from_millis(100)),
+            }
+        }
+        None
+    }
+
     fn ask(path: &Path, question: &str) -> Option<Value> {
-        request(json!({"type": "ask", "question": question}), Some(path), Duration::from_secs(10)).ok()
+        retry(path, json!({"type": "ask", "question": question}))
     }
 
     #[test]
@@ -547,7 +560,7 @@ mod tests {
         // a failing question does not stop the server
         assert_eq!(ask(&path, "fail").unwrap()["code"], 1);
         assert_eq!(ask(&path, "again").unwrap()["stdout"], "$ echo again");
-        assert_eq!(request(json!({"type": "stop"}), Some(&path), Duration::from_secs(10)).unwrap()["stopped"], true);
+        assert_eq!(retry(&path, json!({"type": "stop"})).unwrap()["stopped"], true);
         assert_eq!(handle.join().unwrap(), 0);
         assert!(!path.exists());
     }
@@ -561,7 +574,7 @@ mod tests {
         let mut stream = UnixStream::connect(&path).unwrap();
         send(&mut stream, &json!({"type": "ask", "question": "q", "version": "0.0.1"})).unwrap();
         assert_eq!(receive(&mut stream, None).unwrap()["stale"], VERSION);
-        let _ = request(json!({"type": "stop"}), Some(&path), Duration::from_secs(10));
+        assert_eq!(retry(&path, json!({"type": "stop"})).unwrap()["stopped"], true);
         handle.join().unwrap();
     }
 
@@ -587,7 +600,7 @@ mod tests {
         let reply = request_remote(&address, &token, ask("hi"), wait).unwrap();
         assert_eq!((reply["stdout"].as_str(), reply["network"].as_bool()), (Some("$ echo hi"), Some(true)));
         // the local socket's requests are not
-        assert!(request(ask("local"), Some(&path), wait).unwrap()["network"].is_null());
+        assert!(retry(&path, ask("local")).unwrap()["network"].is_null());
         // a wrong token, or none, is refused and the server goes on
         let refused = request_remote(&address, "0123456789abcdeX", ask("hi"), wait).unwrap();
         assert_eq!((refused["code"].as_i64(), refused["stdout"].as_str()), (Some(2), Some("")));
@@ -600,7 +613,7 @@ mod tests {
         assert_eq!(stop["code"], 2);
         assert_eq!(request_remote(&address, &token, ask("still"), wait).unwrap()["stdout"], "$ echo still");
         // the local socket still answers, and stops it
-        assert_eq!(request(json!({"type": "stop"}), Some(&path), wait).unwrap()["stopped"], true);
+        assert_eq!(retry(&path, json!({"type": "stop"})).unwrap()["stopped"], true);
         assert_eq!(handle.join().unwrap(), 0);
         // and then there is nobody to ask
         assert!(request_remote(&address, &token, ask("gone"), Duration::from_secs(2)).is_err());
