@@ -492,6 +492,9 @@ fn slips(task: &str, command: &str, request: &str) -> Vec<Miss> {
             )));
         }
     }
+    if wants_human_sizes(task) && !HUMAN_SIZES.is_match(command) {
+        misses.push(Miss::slip("the request asks for human-readable sizes; the command does not print them"));
+    }
     if IN_HOME.is_match(command) && !HOME_WORDS.is_match(task) && !HOME_WORDS.is_match(request) {
         misses.push(Miss::slip("the command looks in the home directory; the request does not say home"));
     }
@@ -812,14 +815,116 @@ static DIRECTORY_PLACEHOLDER: LazyRe = re!(r"(?<![\w.$~-])/?path/to/(?:directory
 static FIND_HERE: LazyRe = re!(r"(?<![\w-])((?:sudo\s+)?find)\s+\.(?=\s|$)");
 static REGEX_CLASS_OF_ONE: LazyRe = re!(r"\[(.)\]");
 
+// "the biggest files, with human-readable sizes" answered with byte counts. Only sizes:
+// "human-readable timestamps" (`dmesg -T`) is another matter.
+static HUMAN_READABLE: LazyRe = re!(r"\bhuman[\s-]*readabl[ey]\b", "i");
+static SIZE_WORDS: LazyRe = re!(
+    r"\b(?:sizes?|sized|bytes|space|usage|units?|big\w*|larg\w*|small\w*|disk|memory|ram|swap|files?|folders?|director(?:y|ies))\b",
+    "i"
+);
+// -h of the programs that print sizes, --si, a block size, numfmt, or arithmetic in 1024s
+static HUMAN_SIZES: LazyRe = re!(
+    r"\bnumfmt\b|--human-readable\b|--si\b|--block-size\b|/\s*\(?\s*(?:1024|1048576|1073741824|1000000)\b|(?:^|[|;&(`]\s*|\$\(\s*|\s)(?:sudo\s+)?(?:lsblk|ncdu|duf|dust)\b|(?:^|[|;&(`]\s*|\$\(\s*|\s)(?:sudo\s+)?(?:du|df|ls|free|tree|stat)\b[^|;&)]*?\s-[a-zA-Z]*[hB]"
+);
+// `find ... -printf '%s...'` sorted or cut down: the size is still the first field
+static FIND_SIZE_FIRST: LazyRe = re!(r#"^\s*(?:sudo\s+)?find\b.*\s-printf\s+(['"])%s(?:\\t|\s)"#);
+static KEEPS_FIRST_FIELD: LazyRe = re!(r"^\s*(?:sort|head|tail)\b");
+static LS_CALL: LazyRe = re!(r"((?:^|[|(]\s*)(?:sudo\s+)?ls)\b([^|)]*)");
+static DU_CALL: LazyRe = re!(r"((?:^|[|(]\s*|-exec\s+|xargs\s+(?:-\S+\s+)*)(?:sudo\s+)?du)\b([^|)]*)");
+static SHORT_FLAGS: LazyRe = re!(r"(?<=\s)-([a-zA-Z]+)(?=\s|$)");
+static LONG_LISTING: LazyRe = re!(r"(?:^|\s)-[a-zA-Z]*l|--format[=\s]+long\b");
+// du's own units: bytes, kilobytes, megabytes, a block size
+static DU_UNITS: LazyRe = re!(r"\s-[a-zA-Z]*[bkmB]|--bytes\b|--block-size\b");
+// What may read sizes like 1.2K and 340M: sort -h does, sort -n and awk's sums do not.
+static SIZE_SAFE_STAGE: LazyRe = re!(
+    r"^\s*(?:(?:sudo\s+)?(?:ls|du|find)\b|head\b|tail\b|grep\b|less\b|more\b|column\b|sort\b(?![^|]*\s-[a-zA-Z]*n)(?![^|]*--numeric))"
+);
+
+fn wants_human_sizes(task: &str) -> bool {
+    HUMAN_READABLE.is_match(task) && SIZE_WORDS.is_match(task)
+}
+
+/// `-h` among `args`: added to the first group of short flags with none of `valued`
+/// (`-s` becomes `-sh`, `-d 1` is left alone), else as a flag of its own.
+fn with_h(args: &str, valued: &str) -> String {
+    let mut done = false;
+    let joined = SHORT_FLAGS.sub_with(args, 0, |caps: &Captures| {
+        let letters = group_or_empty(caps, 1);
+        if done || letters.contains(|c| valued.contains(c)) {
+            return group_or_empty(caps, 0).to_string();
+        }
+        done = true;
+        format!("-{letters}h")
+    });
+    if done { joined } else { format!(" -h{args}") }
+}
+
+/// Byte counts for a request that wants human-readable sizes, where the fix is one:
+/// numfmt on the first field of `find -printf '%s...'`, which leaves the rest of each
+/// line as it is; `-h` for `ls -l` and du, when nothing after them reads the sizes as
+/// numbers.
+fn human_sizes_repair(command: &str, task: &str) -> String {
+    if !wants_human_sizes(task) || HUMAN_SIZES.is_match(command) || command.contains(['\n', ';', '&']) {
+        return command.to_string();
+    }
+    let stages: Vec<&str> = command.split('|').collect();
+    if FIND_SIZE_FIRST.is_match(stages[0]) && stages[1..].iter().all(|stage| KEEPS_FIRST_FIELD.is_match(stage)) {
+        return format!("{} | numfmt --field=1 --to=iec", py::rstrip(command));
+    }
+    if !stages.iter().all(|stage| SIZE_SAFE_STAGE.is_match(stage)) {
+        return command.to_string();
+    }
+    let command = LS_CALL.sub_with(command, 0, |caps: &Captures| {
+        let args = group_or_empty(caps, 2);
+        let args = if LONG_LISTING.is_match(args) { with_h(args, "ITw") } else { args.to_string() };
+        format!("{}{args}", group_or_empty(caps, 1))
+    });
+    DU_CALL.sub_with(&command, 0, |caps: &Captures| {
+        let args = group_or_empty(caps, 2);
+        if DU_UNITS.is_match(args) {
+            return group_or_empty(caps, 0).to_string();
+        }
+        format!("{}{}", group_or_empty(caps, 1), with_h(args, "dBtTX"))
+    })
+}
+
+// "excluding hidden files" answered with `! -name '.*'`, which still lists everything
+// inside ~/.cache and ~/.local. `-path '*/.*'` leaves out hidden directories' files too.
+static NOT_HIDDEN: LazyRe = re!(
+    r"\b(?:exclud\w*|without|skip\w*|ignor\w*|leav\w*\s+out|except|not|no|other\s+than)\s+(?:the\s+|any\s+|all\s+)?hidden\b|\bnon[\s-]?hidden\b|\bvisible\s+(?:files|ones)\b",
+    "i"
+);
+static NOT_DOT_NAME: LazyRe = re!(r#"(!|-not)\s+-name\s+(['"])\.\*(['"])"#);
+static FIND_STARTS: LazyRe = re!(r"(?:^|[|;&(]\s*)(?:sudo\s+)?find\s+((?:[^\s!(-][^\s]*\s+)*)");
+
+fn hidden_repair(command: &str, task: &str) -> String {
+    if !NOT_HIDDEN.is_match(task) || command.contains("*/.*") || command.contains("-prune") {
+        return command.to_string();
+    }
+    // a start inside a hidden directory (~/.config) would leave nothing to list
+    let starts = FIND_STARTS.search(command).map(|caps| group_or_empty(&caps, 1).to_string()).unwrap_or_default();
+    let hidden = |start: &str| start.split('/').any(|part| part.starts_with('.') && part != "." && part != "..");
+    if py::split_ws(&starts).into_iter().any(hidden) {
+        return command.to_string();
+    }
+    NOT_DOT_NAME.sub_with(command, 0, |caps: &Captures| {
+        if group_or_empty(caps, 2) != group_or_empty(caps, 3) {
+            return group_or_empty(caps, 0).to_string();
+        }
+        format!("{} -path '*/.*'", group_or_empty(caps, 1))
+    })
+}
+
 /// Fix the known slips that have one right fix: `ps ... | head -n 1` keeps the header
 /// and the first process with `head -n 2`; `grep` on a directory gets `-r`; a bare
 /// crontab entry is installed with `crontab`. With the task: a tldr placeholder
 /// `path/to/build` for the "build" the task names becomes `build`, and
 /// `path/to/directory` for "here" becomes `.`; a bare `head` or
 /// `tail` gets the task's "first N lines" or "last N lines", `find -mtime 0` for "the
-/// last hour" becomes `-mmin -60`, another distribution's listing of the installed
-/// packages becomes this system's, and a command that always needs root gets `sudo`
+/// last hour" becomes `-mmin -60`, `find -printf '%s...'` for human-readable sizes gets
+/// `numfmt`, `! -name '.*'` for "excluding hidden" becomes `! -path '*/.*'`, another
+/// distribution's listing of the installed packages becomes this system's, and a
+/// command that always needs root gets `sudo`
 /// (unless lxask runs as root).
 pub fn repair(command: &str, task: &str) -> String {
     let stripped = py::strip(command);
@@ -880,6 +985,8 @@ pub fn repair(command: &str, task: &str) -> String {
         if HOME.is_match(task) && !HOME_IN_COMMAND.is_match(&command) {
             command = FIND_HERE.sub_with(&command, 1, |caps: &Captures| format!("{} ~", group_or_empty(caps, 1)));
         }
+        command = human_sizes_repair(&command, task);
+        command = hidden_repair(&command, task);
         command = listing_repair(&command, task);
         command = sudo_repair(&command, task);
         command = ruled_out_repair(&command, task);
