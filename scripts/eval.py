@@ -149,13 +149,13 @@ def score(case: dict, steps: list[Step], catalog: Catalog, asked: bool = False) 
         result["steps_off"] = abs(len(steps) - len(wanted))
     if "must_not" in case:
         result["violations"] = any(re.search(pattern, command) for pattern in case["must_not"] for command in commands)
-    if "must" in case:  # ambiguous, with a context named: the form a right command has
+    if "must" in case:  # the form a right command has (ambiguous with a context named, regressions)
         result["form"] = any(re.search(pattern, " ; ".join(commands)) for pattern in case["must"])
     if "forbid" in case:  # programs ruled out: judged by what runs, not by matching text (`ip route`)
         result["violations"] = result.get("violations", False) or any(
             p.lower() in case["forbid"] for c in commands for p in programs_run(c))
     passed = (result["answered"] and result.get("complete", True)
-              and result.get("program", True) and not result.get("violations", False))
+              and result.get("program", True) and not result.get("violations", False) and result.get("form", True))
     if case["set"] in ("regressions", "forbidden", "forbidden_heldout"):
         result["pass"] = passed
     if case["set"] == "ambiguous":

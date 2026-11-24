@@ -59,7 +59,8 @@ The command is checked without running it:
   is `-mtime +30`, `-mmin +43200` or `--since '30 days ago'`.
 - **Against known slips.** `grep` on a directory without `-r`, a reboot for "shut
   down", `pip list` for the system's packages, `$HOME/...` when the request never
-  mentioned home, a command that deletes for a request that only asks to look.
+  mentioned home, a command that deletes for a request that only asks to look, byte
+  counts for a request that wants human-readable sizes.
 
 When a check objects, or no command came back, the model gets up to two more tries
 (sampled, so they differ), and the answer with the fewest objections is kept. What
@@ -68,7 +69,10 @@ still fails is shown as `unverified:`.
 Slips with exactly one right fix are repaired instead: `head -n 1` after `ps` (that
 is only the header) becomes `head -n 2`; `grep` on a directory gets `-r`; a bare
 crontab line is installed with `crontab`; a command that always needs root gets
-`sudo`; another distribution's package listing or search becomes this machine's.
+`sudo`; another distribution's package listing or search becomes this machine's;
+`find -printf '%s ...'` for human-readable sizes gets `| numfmt --field=1 --to=iec`;
+`! -name '.*'` for "excluding hidden files", which still looks inside `~/.cache`,
+becomes `! -path '*/.*'`.
 
 ### What the check cannot tell you
 

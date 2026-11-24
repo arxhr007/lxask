@@ -295,6 +295,84 @@ def test_repair_leaves_sudo_out_where_it_does_not_belong(user, monkeypatch):
     assert repair("apt update", "refresh the package lists") == "apt update"
 
 
+BIGGEST = "find the 5 biggest files in my home folder, excluding hidden files, and use human-readable sizes"
+
+
+def test_repair_makes_find_sizes_human_readable():
+    # 1.5.4 answered a Reddit commenter's request this way, "human-readable" dropped
+    assert repair("find ~ -type f -printf '%s\\t%p\\n' | sort -nr | head -n 5",
+                  "show the 5 biggest files in my home folder with human-readable sizes") == \
+        "find ~ -type f -printf '%s\\t%p\\n' | sort -nr | head -n 5 | numfmt --field=1 --to=iec"
+    unchanged = [
+        # nothing asks for it
+        ("find ~ -type f -printf '%s\\t%p\\n' | sort -nr | head -n 5", "show the 5 biggest files in my home folder"),
+        # already human-readable
+        ("du -ah ~ | sort -hr | head -n 5", "the 5 biggest files in my home, human-readable sizes"),
+        # the size is not the first field
+        ("find . -type f -printf '%p %s\\n' | sort -k2 -nr", "list files by size, human-readable"),
+        # awk takes the fields apart: numfmt after it may not see the size first
+        ("find . -type f -printf '%s %p\\n' | awk '$1 > 0'", "list file sizes in human-readable form"),
+    ]
+    assert [repair(command, task) for command, task in unchanged] == [command for command, _ in unchanged]
+
+
+def test_repair_adds_h_to_ls_and_du_for_human_readable_sizes():
+    # steps of the multistep3 held-out set that 1.5.4 answered without -h
+    assert repair("ls -la -- /home/mira/build-cache",
+                  "List immediate entries in /home/mira/build-cache with details, including hidden entries and human-readable sizes.") == \
+        "ls -lah -- /home/mira/build-cache"
+    assert repair("find /srv/archive -mindepth 1 -maxdepth 1 -type d -exec du -s -- {} + | sort -hr | head -n 5",
+                  "Show the 5 largest immediate subdirectories of /srv/archive with human-readable disk usage, largest first.") == \
+        "find /srv/archive -mindepth 1 -maxdepth 1 -type d -exec du -sh -- {} + | sort -hr | head -n 5"
+    task = "show the size of each folder here in human-readable units"
+    assert repair("du -d 1 .", task) == "du -h -d 1 ."
+    assert repair("du -t 1M -s .", task) == "du -t 1M -sh ."
+    assert repair("du --max-depth=1 . | sort -h", task) == "du -h --max-depth=1 . | sort -h"
+    assert repair("ls -lw 80 /srv", "list /srv with human-readable sizes") == "ls -h -lw 80 /srv"
+    unchanged = [
+        # sort -n and awk read the sizes as numbers: 1.2K would sort after 340M
+        ("du -s * | sort -nr | head -n 5", task),
+        ("ls -l | awk '{ s += $5 } END { print s }'", "add up the file sizes here, human-readable"),
+        ("ls -l | sort -k5 -n", "list files by size, human-readable"),
+        # its own unit
+        ("du -sm *", task),
+        # no sizes printed to make readable
+        ("ls -a /srv", "list /srv with human-readable sizes"),
+        # several commands: left to the check
+        ("cd /srv && du -s *", task),
+    ]
+    assert [repair(command, task) for command, task in unchanged] == [command for command, _ in unchanged]
+
+
+def test_human_readable_sizes_not_printed_is_a_slip():
+    assert kinds("show the 5 biggest files here with human-readable sizes", "ls -lS | head -n 6") == ["slip"]
+    assert kinds("show disk usage of each folder in human-readable units", "du -s */") == ["slip"]
+    for command in ["du -sh */", "ls -lhS | head -n 6", "df -h /", "free -h", "ls -l --block-size=M",
+                    "find . -type f -exec du -h {} + | sort -hr", "du -s * | sort -nr | numfmt --to=iec --field=1",
+                    "lsblk", "df --si"]:
+        assert kinds("show sizes in human-readable form", command) == [], command
+    # human-readable, but not sizes
+    assert kinds("show the kernel log with human-readable timestamps", "dmesg -T") == []
+
+
+def test_repair_leaves_hidden_directories_out_for_excluding_hidden_files():
+    assert repair("find \"$HOME\" -type f ! -name '.*' -printf '%s\\t%p\\n' | sort -nr | head -n 5", BIGGEST) == \
+        "find \"$HOME\" -type f ! -path '*/.*' -printf '%s\\t%p\\n' | sort -nr | head -n 5 | numfmt --field=1 --to=iec"
+    assert repair("find . -type f -not -name \".*\"", "list the non-hidden files here") == \
+        "find . -type f -not -path '*/.*'"
+    unchanged = [
+        # nothing says hidden
+        ("find . -type f ! -name '.*'", "list files whose names do not start with a dot"),
+        # starts inside a hidden directory: -path would leave nothing
+        ("find ~/.config -type f ! -name '.*'", "list the config files, excluding hidden ones"),
+        ("find .git -type f ! -name '.*'", "files in .git, excluding hidden files"),
+        # already leaves hidden directories out
+        ("find . -path '*/.*' -prune -o -type f -print", "list files, excluding hidden ones"),
+        ("find . -type f ! -path '*/.*'", "list files, excluding hidden ones"),
+    ]
+    assert [repair(command, task) for command, task in unchanged] == [command for command, _ in unchanged]
+
+
 def test_a_ruled_out_program_is_an_objection():
     from lxask.constraints import forbidden, programs_run
 
