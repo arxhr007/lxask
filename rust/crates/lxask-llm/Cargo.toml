@@ -15,4 +15,4 @@ openmp = ["llama-cpp-2/openmp"]
 [dependencies]
 lxask-core.workspace = true
 llama-cpp-2 = { version = "=0.1.160", default-features = false }
-llama-cpp-sys-2 = { version = "=0.1.160", default-features = false }
+llama-cpp-sys-2 = { version = "=0.1.161", default-features = false }
