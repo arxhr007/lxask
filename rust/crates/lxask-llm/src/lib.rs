@@ -12,7 +12,7 @@
 
 use std::num::NonZeroU32;
 use std::path::Path;
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 
 use llama_cpp_2::context::params::LlamaContextParams;
 use llama_cpp_2::context::LlamaContext;
@@ -105,6 +105,13 @@ pub fn gpu_layers() -> u32 {
 
 fn backend() -> Result<&'static LlamaBackend, Error> {
     static BACKEND: OnceLock<LlamaBackend> = OnceLock::new();
+    // The model loads in a thread while the encoder loads in the caller (main.rs), so two
+    // threads can get here at once; llama.cpp's backend may be initialised only once.
+    static INIT: Mutex<()> = Mutex::new(());
+    if let Some(backend) = BACKEND.get() {
+        return Ok(backend);
+    }
+    let _guard = INIT.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     if let Some(backend) = BACKEND.get() {
         return Ok(backend);
     }

@@ -107,8 +107,13 @@ pub fn request(message: Value, path: Option<&Path>, timeout: Duration) -> Result
                 let seconds = timeout.as_secs_f64();
                 format!("no answer within {} s", if seconds.fract() == 0.0 { format!("{seconds:.0}") } else { format!("{seconds}") })
             }
-            // closed before the request was read (a server of another user), or before replying
-            ErrorKind::InvalidData | ErrorKind::ConnectionReset | ErrorKind::UnexpectedEof | ErrorKind::BrokenPipe => {
+            // closed before the request was read (a server of another user), or before replying;
+            // macOS can say NotConnected (ENOTCONN) where Linux says BrokenPipe
+            ErrorKind::InvalidData
+            | ErrorKind::ConnectionReset
+            | ErrorKind::UnexpectedEof
+            | ErrorKind::BrokenPipe
+            | ErrorKind::NotConnected => {
                 "it closed the connection without a reply".to_string()
             }
             _ => error.to_string(),
@@ -244,6 +249,26 @@ pub fn start_and_wait(wait: Duration) -> bool {
     false
 }
 
+// Each supported system names its own way to read the peer's uid; any other target
+// fails to build here rather than answering connections without the check.
+#[cfg(any(
+    target_vendor = "apple",
+    target_os = "freebsd",
+    target_os = "openbsd",
+    target_os = "netbsd",
+    target_os = "dragonfly"
+))]
+fn same_user(stream: &UnixStream) -> bool {
+    // macOS and the BSDs have no SO_PEERCRED; getpeereid gives the peer's uid.
+    let mut uid: libc::uid_t = 0;
+    let mut gid: libc::gid_t = 0;
+    // SAFETY: getpeereid only writes the two ids.
+    let ok = unsafe { libc::getpeereid(stream.as_raw_fd(), &mut uid, &mut gid) } == 0;
+    // SAFETY: getuid cannot fail.
+    ok && uid == unsafe { libc::getuid() }
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
 fn same_user(stream: &UnixStream) -> bool {
     let mut cred = libc::ucred { pid: 0, uid: 0, gid: 0 };
     let mut len = std::mem::size_of::<libc::ucred>() as libc::socklen_t;

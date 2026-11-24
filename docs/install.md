@@ -18,6 +18,22 @@
 | ARM64 with dot product (Raspberry Pi 5 and CM5, Graviton, Apple, most ARM servers) | `lxask-aarch64-dotprod` | installs and answers the same as x86_64 (checked under emulation); speed measured on a real Pi 5 pending |
 | other ARM64 (Raspberry Pi 4) | `lxask-aarch64` | yes: installs and answers the same as x86_64; reports from real devices welcome |
 | other distributions (Fedora, Arch, openSUSE) | same builds | the program runs anywhere with glibc 2.28+; answers are tuned and measured on Debian/Ubuntu ([accuracy.md](accuracy.md#platforms)) |
+| macOS (Apple Silicon or Intel) | built from source, below | builds, passes the tests and answers on an Apple Silicon Mac; answers are still Linux (GNU) commands |
+
+### macOS
+
+Releases have no macOS program, so it is built on the Mac (needs Rust, from
+[rustup.rs](https://rustup.rs), and the Xcode command line tools). install.sh then puts
+it in place and downloads the model and the rest from the release as usual:
+
+```sh
+cargo build --release --manifest-path rust/Cargo.toml -p lxask
+sh scripts/install.sh --program rust/target/release/lxask
+```
+
+lxask still answers with Linux commands: GNU options such as `du --max-depth` or
+`ls --directory` work on a Mac only with GNU coreutils (`brew install coreutils`). It is
+most useful on a Mac for commands you will run on Linux machines and containers.
 
 ## Install or upgrade
 
@@ -40,7 +56,9 @@ The script:
    2015), `lxask-x86_64` (older x86), `lxask-aarch64-dotprod` (ARM64 with the dot-product
    instructions, which `/proc/cpuinfo` lists as `asimddp`) or `lxask-aarch64`;
 2. downloads it with the model, its adapters, the encoder and the documentation
-   index, using curl, wget or a logged-in `gh`;
+   index, using curl, wget or a logged-in `gh`. On an upgrade, an installed file whose
+   checksum is the release's is kept as it is: when only the program and the index
+   change, that is about 80 MB instead of 1.1 GB;
 3. checks every file against `SHA256SUMS`;
 4. puts `lxask` in `~/.local/bin` and the rest in `~/.local/share/lxask`;
 5. asks whether to keep lxask loaded between questions, for answers in about 2 s
