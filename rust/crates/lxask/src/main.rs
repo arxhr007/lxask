@@ -5,6 +5,7 @@ mod config;
 mod feedback;
 mod server;
 mod shell;
+mod update;
 
 use std::cell::RefCell;
 use std::io::{BufRead, Write};
@@ -96,6 +97,8 @@ struct Args {
     stop: bool,
     /// just the command on stdout, the rest on stderr (the shell widget)
     command_only: bool,
+    /// the detached worker of the release check (update::maybe_spawn_detached)
+    update_check: bool,
 }
 
 fn usage_error(message: &str) -> ExitCode {
@@ -137,6 +140,7 @@ fn parse(argv: &[String]) -> Parsed {
             "--command-only" => args.command_only = true,
             "--serve" => args.serve = true,
             "--stop" => args.stop = true,
+            "--update-check" => args.update_check = true,
             "--model" => match value("--model") {
                 Ok(v) => args.model = Some(PathBuf::from(v)),
                 Err(code) => return Parsed::Exit(code),
@@ -241,6 +245,11 @@ fn main() -> ExitCode {
             }
         };
     }
+    if args.update_check {
+        // a detached copy of this program does the day's release check (update.rs)
+        update::run_and_write();
+        return ExitCode::SUCCESS;
+    }
     if question.is_empty() && !args.serve {
         return usage_error("say what you want to do, e.g. lxask \"show disk usage of each folder\"");
     }
@@ -260,6 +269,12 @@ fn main() -> ExitCode {
             say(&asked);
             return ExitCode::from(ASKED_BACK);
         }
+    }
+
+    // A real question: a day-stale release check starts apart from the answer
+    // (the note, when there is a newer release, follows the answer — update.rs).
+    if !args.serve {
+        update::maybe_spawn_detached();
     }
 
     // Another machine's server (LXASK_SERVER), when set, answers everything: nothing
@@ -320,6 +335,7 @@ fn main() -> ExitCode {
             if !text("stdout").is_empty() {
                 println!("{}", text("stdout"));
             }
+            say_update();
             return ExitCode::from(reply.get("code").and_then(Value::as_u64).unwrap_or(0) as u8);
         }
     }
@@ -381,6 +397,7 @@ fn main() -> ExitCode {
             let stops = if idle > 0.0 { format!("; stops after {} min idle", minutes(idle)) } else { String::new() };
             eprintln!("lxask: ready, answering on {}{network}{stops} (lxask --stop)", path.display());
         };
+        update::maybe_spawn_thread();
         let code =
             server::serve(&mut |message| loaded.borrow_mut().respond(message, &model), None, remote.as_ref(), idle, &ready);
         return ExitCode::from(code as u8);
@@ -393,7 +410,15 @@ fn main() -> ExitCode {
     if !text("stdout").is_empty() || !args.command_only {
         println!("{}", text("stdout"));
     }
+    say_update();
     ExitCode::from(reply.get("code").and_then(Value::as_u64).unwrap_or(0) as u8)
+}
+
+/// "a newer release is out", when the day's background check saw one (update.rs).
+fn say_update() {
+    if let Some(note) = update::notice() {
+        eprintln!("{note}");
+    }
 }
 
 /// `lxask --explain COMMAND`: the command checked and described from the docs index
@@ -495,6 +520,7 @@ fn ask_remote(address: &str, message: Value, command_only: bool) -> ExitCode {
     if !text("stdout").is_empty() || (!command_only && code == 0) {
         println!("{}", text("stdout"));
     }
+    say_update();
     ExitCode::from(code)
 }
 
