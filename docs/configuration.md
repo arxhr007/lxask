@@ -92,9 +92,11 @@ update_check = off  # never look for a newer release
 
 Once a day, apart from the answer, lxask asks GitHub for the newest release tag and
 writes it to `~/.local/share/lxask/latest`; a newer one adds a line after the next
-answers (`lxask: a newer release is out: v1.5.7 ...`). The check is the only network
-traffic lxask makes on its own — answers stay offline — and it never delays or
-changes an answer. `LXASK_UPDATE_CHECK=off` does the same for one shell.
+answers (`lxask: a newer release is out: v1.5.7 ...; lxask --upgrade installs it`).
+`lxask --upgrade` downloads the newest release's install.sh and runs it — the same
+upgrade as running install.sh by hand. The check is the only network traffic lxask
+makes on its own — answers stay offline — and it never delays or changes an answer.
+`LXASK_UPDATE_CHECK=off` does the same for one shell.
 
 ## Package managers
 

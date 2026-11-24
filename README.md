@@ -149,7 +149,7 @@ sandbox. The data: [docs/development.md](docs/development.md#training-data).
 
 *Once a day it asks GitHub for the newest release tag, in the background — answers
 themselves are always offline (`update_check = off` in the settings, or
-LXASK_UPDATE_CHECK=off, stops it).
+LXASK_UPDATE_CHECK=off, stops it; `lxask --upgrade` installs a newer one).
 
 It is a 1.5B-parameter model, not a giant hosted one: a fast, private first answer
 for everyday Linux work, not a replacement for knowing your system.

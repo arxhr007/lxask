@@ -4,7 +4,8 @@
 //! this program (`lxask --update-check`), whose result the next run reads from
 //! `$LXASK_HOME/latest`. No network, a failed check or an old binary only means the
 //! note does not appear; `update_check = off` (or LXASK_UPDATE_CHECK=off) stops it
-//! entirely.
+//! entirely. `lxask --upgrade` is what the note suggests: it runs the newest
+//! release's install.sh, which keeps every file a checksum says is unchanged.
 
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
@@ -21,6 +22,8 @@ const CHECK_EVERY_SECS: u64 = 24 * 3600;
 const LATEST_FILENAME: &str = "latest";
 /// asked for the newest release's tag (a JSON object; `.tag_name` is "v1.5.6")
 const RELEASES_URL: &str = "https://api.github.com/repos/arxhr007/lxask/releases/latest";
+/// the newest release's installer, which --upgrade downloads and runs
+const INSTALL_URL: &str = "https://github.com/arxhr007/lxask/releases/latest/download/install.sh";
 
 fn cache_path() -> PathBuf {
     config::data_home().join(LATEST_FILENAME)
@@ -64,7 +67,7 @@ pub fn notice() -> Option<String> {
     }
     let (tag, _) = cache()?;
     newer(&tag, server::VERSION)
-        .then(|| format!("lxask: a newer release is out: {tag} (installed: {}); install.sh upgrades", server::VERSION))
+        .then(|| format!("lxask: a newer release is out: {tag} (installed: {}); lxask --upgrade installs it", server::VERSION))
 }
 
 /// Check once: ask GitHub for the latest release's tag and write it down. The time
@@ -121,6 +124,42 @@ pub fn maybe_spawn_thread() {
         return;
     }
     std::thread::spawn(run_and_write);
+}
+
+/// `lxask --upgrade`: the newest release's install.sh, downloaded and run in the
+/// open — it picks the binary for this machine, checks every file against
+/// SHA256SUMS, keeps unchanged ones and stops a server the old version started.
+/// Its exit status becomes this program's.
+pub fn upgrade() -> u8 {
+    let script = std::env::temp_dir().join(format!("lxask-install-{}.sh", std::process::id()));
+    eprintln!("lxask: downloading the newest release's install.sh");
+    match Command::new("curl")
+        .args(["-fsSL", "--max-time", "30", "-o"])
+        .arg(&script)
+        .arg(INSTALL_URL)
+        .stdin(Stdio::null())
+        .status()
+    {
+        Err(error) => {
+            eprintln!("lxask: cannot run curl: {error}");
+            return 1;
+        }
+        Ok(status) if !status.success() => {
+            let _ = std::fs::remove_file(&script);
+            eprintln!("lxask: could not download install.sh ({status})");
+            return 1;
+        }
+        _ => {}
+    }
+    let ran = Command::new("sh").arg(&script).status();
+    let _ = std::fs::remove_file(&script);
+    match ran {
+        Ok(status) => status.code().unwrap_or(1) as u8,
+        Err(error) => {
+            eprintln!("lxask: cannot run sh: {error}");
+            1
+        }
+    }
 }
 
 #[cfg(test)]
