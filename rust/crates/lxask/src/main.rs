@@ -305,6 +305,7 @@ fn main() -> ExitCode {
                     minutes(server::IDLE_MINUTES)
                 );
             }
+            eprintln!("lxask: starting up; loading the model makes the first answer slower");
             if server::start_and_wait(server::START_TIMEOUT) {
                 found = ask_server(&question, &args);
             }
@@ -340,6 +341,7 @@ fn main() -> ExitCode {
     // the adapters are made for the installed model, not for one passed with --model
     let (restrict, precision) =
         if args.model.is_none() { (config::adapter_path(), config::precision_adapter_path()) } else { (None, None) };
+    eprintln!("lxask: loading the model, this takes a few seconds");
     let loaded = match Loaded::load(&model, restrict, precision, args.index.clone(), args.no_rag, args.threads) {
         Ok(loaded) => loaded,
         Err(error) => {
