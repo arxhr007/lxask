@@ -46,3 +46,29 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends cmake libclang-dev
       - name: Program tests
         run: cargo test --release --manifest-path rust/Cargo.toml -p lxask
+
+  macos:
+    # releases have no macOS program: it is built from source (docs/install.md), so the
+    # build, the program's tests and install.sh --program are what keep it working
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - name: Tests
+        run: cargo test --release --manifest-path rust/Cargo.toml -p lxask-core -p lxask -p lxask-llm
+      - name: Build
+        run: cargo build --release --manifest-path rust/Cargo.toml -p lxask
+      - name: install.sh without --program stops before downloading
+        run: |
+          if sh scripts/install.sh --no-serve 2>err.txt; then exit 1; fi
+          grep -q 'releases have no macOS program' err.txt
+      - name: install.sh --program, then a question
+        env:
+          LXASK_HOME: ${{ runner.temp }}/lxask
+          LXASK_BIN: ${{ runner.temp }}/bin
+        run: |
+          sh scripts/install.sh --program rust/target/release/lxask --no-serve
+          "$LXASK_BIN/lxask" --explain "du -sh --max-depth 1"
