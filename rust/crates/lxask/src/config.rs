@@ -113,6 +113,12 @@ pub fn local_man() -> bool {
     setting("LXASK_LOCAL_MAN", "local_man").as_deref().and_then(truthy).unwrap_or(true)
 }
 
+/// Whether a newer release is looked for once a day in the background
+/// (LXASK_UPDATE_CHECK or `update_check = off` turns it off); on when nothing says so.
+pub fn update_check() -> bool {
+    setting("LXASK_UPDATE_CHECK", "update_check").as_deref().and_then(truthy).unwrap_or(true)
+}
+
 /// The catalogue in the index at `index`, reading this machine's manual pages too
 /// unless that is turned off.
 pub fn catalog(index: &Path) -> Option<lxask_core::validate::Catalog> {

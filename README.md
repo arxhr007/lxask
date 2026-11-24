@@ -140,12 +140,16 @@ sandbox. The data: [docs/development.md](docs/development.md#training-data).
 
 | | lxask | hosted AI assistants | tldr | man |
 |---|---|---|---|---|
-| no network, account or API key | ✅ after installing | ❌ | ✅ | ✅ |
+| no network, account or API key | ✅ after installing* | ❌ | ✅ | ✅ |
 | ask in plain words | ✅ | ✅ | ❌ look up by name | ❌ |
 | checks its answer against the docs | ✅ flags what it can't confirm | not as a rule | (it is the docs) | (it is the docs) |
 | keeps "without X", asks back on vague requests | ✅ | varies | ❌ | ❌ |
 | runs commands for you | never | some can | no | no |
 | local size | 1.1 GB disk, 1.3 GB memory at peak | none, or a large model | small | built in |
+
+*Once a day it asks GitHub for the newest release tag, in the background — answers
+themselves are always offline (`update_check = off` in the settings, or
+LXASK_UPDATE_CHECK=off, stops it).
 
 It is a 1.5B-parameter model, not a giant hosted one: a fast, private first answer
 for everyday Linux work, not a replacement for knowing your system.

@@ -42,6 +42,7 @@ The program itself is `~/.local/bin/lxask`.
 | `LXASK_IDLE` | the `idle` setting, else `30` | minutes without a question before the server stops (`0`: never); `--idle` overrides it |
 | `LXASK_SERVER` | the `server` setting | `host:port` of another machine's `lxask --serve --listen`, to ask it instead of a model here |
 | `LXASK_TOKEN` | the `token` setting, else `$LXASK_HOME/token` | the token for `--listen`, or for asking `LXASK_SERVER` |
+| `LXASK_UPDATE_CHECK` | the `update_check` setting, else on | `off`: never look for a newer release ([settings](#settings)) |
 
 With `LXASK_SERVER`, the server answers as for its own machine: whether to add `sudo`
 and which package manager to use come from there (`LXASK_AS_ROOT` and
@@ -82,6 +83,18 @@ what `LXASK_SERVER` and `LXASK_TOKEN` do:
 server = 192.168.1.10:7871
 token = <the token from the server's ~/.local/share/lxask/token>
 ```
+
+And this one turns the release check off (on by default):
+
+```ini
+update_check = off  # never look for a newer release
+```
+
+Once a day, apart from the answer, lxask asks GitHub for the newest release tag and
+writes it to `~/.local/share/lxask/latest`; a newer one adds a line after the next
+answers (`lxask: a newer release is out: v1.5.7 ...`). The check is the only network
+traffic lxask makes on its own — answers stay offline — and it never delays or
+changes an answer. `LXASK_UPDATE_CHECK=off` does the same for one shell.
 
 ## Package managers
 

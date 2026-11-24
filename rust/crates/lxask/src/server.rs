@@ -381,6 +381,7 @@ pub fn serve(
     ready(&path);
     let idle_ms = if idle > 0.0 { (idle * 60_000.0).min(i32::MAX as f64) as i32 } else { -1 };
     while let Some(ready) = wait_for_connection(&listener, remote.map(|r| &r.listener), idle_ms) {
+        crate::update::maybe_spawn_thread();
         let keep_going = match (ready, remote) {
             (Ready::Network, Some(remote)) => match remote.listener.accept() {
                 Ok((mut stream, _)) => {
