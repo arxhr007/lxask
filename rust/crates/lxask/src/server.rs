@@ -485,7 +485,7 @@ mod tests {
         let path = dir.join(SOCKET);
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let address = listener.local_addr().unwrap().to_string();
-        let token = "0123456789abcdef".to_string();
+        let token = format!("test-token-{}", rand_suffix());
         let remote = Remote { listener, token: token.clone() };
         let (tx, rx) = mpsc::channel();
         let serve_path = path.clone();
