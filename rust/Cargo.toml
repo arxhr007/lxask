@@ -14,7 +14,7 @@ rust-version = "1.80"
 lxask-core = { path = "crates/lxask-core" }
 lxask-llm = { path = "crates/lxask-llm" }
 fancy-regex = "0.19"
-rusqlite = { version = "0.40", features = ["bundled"] }
+rusqlite = { version = "0.43", features = ["bundled"] }
 half = "2.7"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
