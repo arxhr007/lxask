@@ -187,6 +187,9 @@ pub fn answer(
             while !command.is_empty() && issues.is_empty() && misses.is_empty() {
                 let described = explain(&command, catalog);
                 let ruled: Vec<String> = ruled_out.iter().chain(task_rules_out.iter()).cloned().collect();
+                if !verify::worth_a_look(&described, &ruled) {
+                    break;
+                }
                 let reply = look(&verify::messages(&task, &command, &notes, &described, &ruled))?.unwrap_or_default();
                 let Some(reason) = verify::objection(&reply, &command, &task) else { break };
                 doubted = true;
@@ -515,7 +518,7 @@ mod tests {
         let catalog = find_catalog();
         let mut chat = tasks_then("find /etc -type f -name '*.log'");
         let mut search = |_: &str| Ok(Vec::new());
-        let mut resample = |_: &[Message], _: usize| Ok(Some(crate::prompt::format_answer("find /var/log -name '*.log'")));
+        let mut resample = |_: &[Message], _: usize| Ok(Some(crate::prompt::format_answer("find /var/log -name '*.log' -type f")));
         let looks = std::cell::Cell::new(0);
         let mut verify = |_: &[Message]| {
             looks.set(looks.get() + 1);
@@ -524,7 +527,7 @@ mod tests {
         let steps =
             answer("find the .log files", &mut chat, &mut search, Some(&catalog), Some(&mut resample), Some(&mut verify)).unwrap();
         assert_eq!(looks.get(), 2);
-        assert_eq!(steps[0].command, "find /var/log -name '*.log'");
+        assert_eq!(steps[0].command, "find /var/log -name '*.log' -type f");
         assert_eq!(steps[0].tries, 2);
         assert!(steps[0].misses.is_empty());
     }
@@ -532,9 +535,9 @@ mod tests {
     #[test]
     fn a_still_doubted_redo_is_marked_unverified() {
         let catalog = find_catalog();
-        let mut chat = tasks_then("find /etc -name '*.log'");
+        let mut chat = tasks_then("find /etc -name '*.log' -type f");
         let mut search = |_: &str| Ok(Vec::new());
-        let mut resample = |_: &[Message], _: usize| Ok(Some(crate::prompt::format_answer("find /var/log -name '*.log'")));
+        let mut resample = |_: &[Message], _: usize| Ok(Some(crate::prompt::format_answer("find /var/log -name '*.log' -type f")));
         let looks = std::cell::Cell::new(0);
         let mut verify = |_: &[Message]| {
             looks.set(looks.get() + 1);
@@ -543,7 +546,7 @@ mod tests {
         let steps =
             answer("find the .log files", &mut chat, &mut search, Some(&catalog), Some(&mut resample), Some(&mut verify)).unwrap();
         // both doubted: the first answer — the model's best — is kept, with its own doubt
-        assert_eq!(steps[0].command, "find /etc -name '*.log'");
+        assert_eq!(steps[0].command, "find /etc -name '*.log' -type f");
         assert_eq!(steps[0].tries, 2);
         assert_eq!(steps[0].misses, vec!["the second look judges this answer wrong: not the right place".to_string()]);
     }
@@ -551,11 +554,27 @@ mod tests {
     #[test]
     fn a_doubt_without_a_reason_and_without_retry_still_marks() {
         let catalog = find_catalog();
-        let mut chat = tasks_then("find . -name '*.log'");
+        let mut chat = tasks_then("find . -name '*.log' -type f");
         let mut search = |_: &str| Ok(Vec::new());
         let mut verify = |_: &[Message]| Ok(Some("wrong".to_string()));
         let steps = answer("find the .log files", &mut chat, &mut search, Some(&catalog), None, Some(&mut verify)).unwrap();
         assert_eq!(steps[0].misses, vec!["the second look judges this answer wrong".to_string()]);
+    }
+
+    #[test]
+    fn a_trivial_answer_gets_no_second_look() {
+        let catalog = find_catalog();
+        let mut chat = tasks_then("find . -name '*.log'");
+        let mut search = |_: &str| Ok(Vec::new());
+        let looks = std::cell::Cell::new(0);
+        let mut verify = |_: &[Message]| {
+            looks.set(looks.get() + 1);
+            Ok(Some("wrong".to_string()))
+        };
+        let steps = answer("find the .log files", &mut chat, &mut search, Some(&catalog), None, Some(&mut verify)).unwrap();
+        assert_eq!(looks.get(), 0);
+        assert_eq!(steps[0].command, "find . -name '*.log'");
+        assert!(steps[0].misses.is_empty());
     }
 
     #[test]
