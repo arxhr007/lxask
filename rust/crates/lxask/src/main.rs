@@ -678,6 +678,9 @@ impl Loaded {
         };
         let described = lxask_core::explain::explain(command, catalog);
         let ruled = lxask_core::constraints::forbidden(question);
+        if !lxask_core::verify::worth_a_look(&described, &ruled) {
+            return Ok(json!({"verdict": "skipped", "objection": null, "raw": ""}));
+        }
         let messages = lxask_core::verify::messages(question, command, &notes, &described, &ruled);
         let reply = llm.borrow_mut().ask(&messages)?.unwrap_or_default();
         let verdict = match lxask_core::verify::verdict(&reply) {

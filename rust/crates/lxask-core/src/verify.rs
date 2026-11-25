@@ -139,6 +139,17 @@ pub fn meaningful(reason: &str, command: &str, task: &str) -> bool {
     words(reason).iter().any(|w| !known.contains(w))
 }
 
+/// Whether a command earns the extra generation. The look's value scales with what
+/// can go wrong: pipes, several programs, substitutions and several options are where
+/// semantic slips live; a one-program, one-option line it mostly doubts for free, and
+/// the doubt is usually wrong. A request that rules a program out is the exception —
+/// the look catches the ruled-out program sneaking back in under another name.
+pub fn worth_a_look(described: &[Described], ruled_out: &[String]) -> bool {
+    !ruled_out.is_empty()
+        || described.len() > 1
+        || described.first().map_or(0, |d| d.options.len()) > 1
+}
+
 /// The objection a look's reply amounts to: the reason a "wrong" gives, when it is a
 /// reason at all. Ok, unclear and echo answers are no objection.
 pub fn objection(reply: &str, command: &str, task: &str) -> Option<String> {
@@ -206,6 +217,30 @@ mod tests {
             ruled[1].content,
             "Request: count lines without wc\nThe request rules out these programs: wc; the command must not run them.\nCommand: awk 'END {print NR}' f"
         );
+    }
+
+    #[test]
+    fn only_commands_with_something_to_check_earn_a_look() {
+        let one_option = vec![Described {
+            program: "find".into(),
+            summary: String::new(),
+            options: vec![("-name".into(), "match name".into())],
+        }];
+        let two_options = vec![Described {
+            program: "find".into(),
+            summary: String::new(),
+            options: vec![("-name".into(), "match name".into()), ("-type".into(), "match type".into())],
+        }];
+        let two_programs = vec![
+            Described { program: "du".into(), summary: String::new(), options: vec![] },
+            Described { program: "sort".into(), summary: String::new(), options: vec![] },
+        ];
+        assert!(!worth_a_look(&one_option, &[]));
+        assert!(!worth_a_look(&[], &[]));
+        assert!(worth_a_look(&two_options, &[]));
+        assert!(worth_a_look(&two_programs, &[]));
+        // a request that rules a program out keeps its look, however plain the answer
+        assert!(worth_a_look(&one_option, &["wc".to_string()]));
     }
 
     #[test]
