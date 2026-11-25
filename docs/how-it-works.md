@@ -4,7 +4,8 @@ The same flow as diagrams, with the components and the build: [architecture.md](
 
 ```
 question -> split into tasks -> for each task: retrieve -> answer -> check
-                                (another try if a check objects) -> explain -> warn
+                                (another try if a check objects) -> second look
+                                (one more try if it objects) -> explain -> warn
 ```
 
 Everything runs locally: a 1.5B-parameter language model and a small encoder through
@@ -74,16 +75,33 @@ crontab line is installed with `crontab`; a command that always needs root gets
 `! -name '.*'` for "excluding hidden files", which still looks inside `~/.cache`,
 becomes `! -path '*/.*'`.
 
+### The second look
+
+What no check objects to is looked at once more by the model: the task, the
+command and the documentation it was written from go back in — the retrieved
+notes and what each option used is documented to do — and the model answers
+"ok" or "wrong". A "wrong" gets one more answer with the objection named, and
+the look at it is the last one. An answer still doubted is shown as
+`unverified: the second look judges this answer wrong: ...` — and at a prompt,
+its command line comes commented out like every flagged one.
+
+The look judges from the same notes the answer was written from; it cannot
+confirm more than they hold. It catches some wrong commands that pass every
+check, and it can doubt a right one — the mark is a doubt to weigh, not a
+verdict. `--no-verify` skips it for a question, `verify = off` in the settings
+or `LXASK_VERIFY=off` everywhere.
+
 ### What the check cannot tell you
 
 A command can pass every check and still not do what you asked: each option is real,
 but not the right one (`sort | uniq -c` counts lines when you wanted words), or a
 pipeline is valid but takes the wrong column. The checks catch commands that cannot
-work, not ones that work differently from what you meant. How often the command does
-the job is what the sandbox numbers in [accuracy.md](accuracy.md) measure. And where
-a subcommand has no man page in the index (`docker run`, `kubectl get`), the options
-after it are not checked at all. So read a command before you run it, also one with
-no `unverified:` line.
+work, not ones that work differently from what you meant — the second look exists
+for these, but a look the model gets wrong leaves the gap it found. How often the
+command does the job is what the sandbox numbers in [accuracy.md](accuracy.md)
+measure. And where a subcommand has no man page in the index (`docker run`,
+`kubectl get`), the options after it are not checked at all. So read a command
+before you run it, also one with no `unverified:` line.
 
 ### Restrictions
 

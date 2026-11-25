@@ -43,6 +43,7 @@ The program itself is `~/.local/bin/lxask`.
 | `LXASK_SERVER` | the `server` setting | `host:port` of another machine's `lxask --serve --listen`, to ask it instead of a model here |
 | `LXASK_TOKEN` | the `token` setting, else `$LXASK_HOME/token` | the token for `--listen`, or for asking `LXASK_SERVER` |
 | `LXASK_UPDATE_CHECK` | the `update_check` setting, else on | `off`: never look for a newer release ([settings](#settings)) |
+| `LXASK_VERIFY` | the `verify` setting, else on | `off`: skip the model's second look at whether an answer does what was asked ([how-it-works.md](how-it-works.md#the-second-look)); `--no-verify` does it for one question |
 
 With `LXASK_SERVER`, the server answers as for its own machine: whether to add `sudo`
 and which package manager to use come from there (`LXASK_AS_ROOT` and
@@ -84,9 +85,10 @@ server = 192.168.1.10:7871
 token = <the token from the server's ~/.local/share/lxask/token>
 ```
 
-And this one turns the release check off (on by default):
+And these turn the second look and the release check off (both on by default):
 
 ```ini
+verify = off        # no second look at answers that pass the checks (a little faster)
 update_check = off  # never look for a newer release
 ```
 

@@ -17,6 +17,7 @@ pub mod safety;
 pub mod shlex;
 pub mod split;
 pub mod validate;
+pub mod verify;
 
 /// An error from a model, an embedder or the index, passed through the answer flow.
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
