@@ -187,7 +187,7 @@ pub fn answer(
             while !command.is_empty() && issues.is_empty() && misses.is_empty() {
                 let described = explain(&command, catalog);
                 let ruled: Vec<String> = ruled_out.iter().chain(task_rules_out.iter()).cloned().collect();
-                if !verify::worth_a_look(&described, &ruled) {
+                if !verify::worth_a_look(&command, &described, &ruled) {
                     break;
                 }
                 let reply = look(&verify::messages(&task, &command, &notes, &described, &ruled))?.unwrap_or_default();

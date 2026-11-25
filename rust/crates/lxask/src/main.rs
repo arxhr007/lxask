@@ -678,7 +678,7 @@ impl Loaded {
         };
         let described = lxask_core::explain::explain(command, catalog);
         let ruled = lxask_core::constraints::forbidden(question);
-        if !lxask_core::verify::worth_a_look(&described, &ruled) {
+        if !lxask_core::verify::worth_a_look(command, &described, &ruled) {
             return Ok(json!({"verdict": "skipped", "objection": null, "raw": ""}));
         }
         let messages = lxask_core::verify::messages(question, command, &notes, &described, &ruled);

@@ -30,7 +30,7 @@ const COMMAND_FOLLOWS: &[&str] = &["if", "then", "else", "elif", "do", "while", 
 const NO_COMMAND: &[&str] = &["for", "case", "select", "function", "done", "fi", "esac", "}", "in"];
 
 // Programs that run another command: `sudo -u bob ls -l` is checked as sudo, then as ls.
-const WRAPPERS: &[&str] = &[
+pub(crate) const WRAPPERS: &[&str] = &[
     "sudo", "doas", "xargs", "env", "nohup", "time", "watch", "timeout", "nice", "ionice", "stdbuf", "setsid", "exec",
     "command", "builtin", "chronic",
 ];
