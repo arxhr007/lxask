@@ -22,7 +22,7 @@ use lxask_core::Error;
 use lxask_llm::{Embedder, Llm};
 
 const USAGE: &str = "usage: lxask [-h] [--about] [--explain COMMAND ...] [--bad] [--share [N]] [--shell-init SHELL] [--model MODEL] [--index INDEX] \
-[--no-rag] [--no-explain] [--command-only] [--show-context] [--no-retry] [--threads THREADS] [--serve] [--listen HOST:PORT] \
+[--no-rag] [--no-explain] [--command-only] [--show-context] [--no-retry] [--no-verify] [--threads THREADS] [--serve] [--listen HOST:PORT] \
 [--idle MINUTES] [--stop] [--upgrade] [--version] [question ...]";
 
 const HELP: &str = "\
@@ -52,6 +52,9 @@ options:
                      fish: lxask --shell-init fish | source)
   --show-context     print the retrieved notes to stderr
   --no-retry         keep the first answer even when the checks object to it (faster)
+  --no-verify        skip the model's second look at whether an answer does what was asked
+                     (faster; `verify = off` in $LXASK_HOME/settings, or LXASK_VERIFY=off,
+                     turns the look off everywhere)
   --threads THREADS  CPU threads (default: one per core)
   --serve            keep the model loaded and answer later questions quickly (holds about
                      1.4 GB of memory until stopped or idle)
@@ -89,6 +92,8 @@ struct Args {
     no_explain: bool,
     show_context: bool,
     no_retry: bool,
+    /// skip the second look at answers that pass the checks
+    no_verify: bool,
     threads: Option<i32>,
     serve: bool,
     /// with --serve: also answer over TCP at this host:port
@@ -140,6 +145,7 @@ fn parse(argv: &[String]) -> Parsed {
             "--no-explain" => args.no_explain = true,
             "--show-context" => args.show_context = true,
             "--no-retry" => args.no_retry = true,
+            "--no-verify" => args.no_verify = true,
             "--command-only" => args.command_only = true,
             "--serve" => args.serve = true,
             "--stop" => args.stop = true,
@@ -465,7 +471,7 @@ fn minutes(value: f64) -> String {
 
 fn message(question: &str, args: &Args) -> Value {
     json!({"type": "ask", "question": question, "explain": !args.no_explain, "retry": !args.no_retry,
-           "rag": !args.no_rag, "show_context": args.show_context, "command_only": args.command_only})
+           "verify": !args.no_verify, "rag": !args.no_rag, "show_context": args.show_context, "command_only": args.command_only})
 }
 
 enum Server {
@@ -596,9 +602,10 @@ impl Loaded {
         Ok(Loaded { llm: RefCell::new(llm), retriever, catalog })
     }
 
-    fn answer(&mut self, question: &str, rag: bool, retry: bool) -> Result<Vec<Step>, Error> {
+    fn answer(&mut self, question: &str, rag: bool, retry: bool, verify: bool) -> Result<Vec<Step>, Error> {
         let llm = &self.llm;
-        llm.borrow_mut().specialize(lxask_core::route::adapter(question, self.catalog.as_ref()))?;
+        let routed = lxask_core::route::adapter(question, self.catalog.as_ref());
+        llm.borrow_mut().specialize(routed)?;
         // LXASK_TIMING: where the time went, as (calls, time) for the model and for retrieval
         let model_time = std::cell::Cell::new((0u32, std::time::Duration::ZERO));
         let search_time = std::cell::Cell::new((0u32, std::time::Duration::ZERO));
@@ -608,13 +615,25 @@ impl Loaded {
         };
         let mut chat = |m: &[Message]| {
             let started = std::time::Instant::now();
-            let reply = llm.borrow_mut().ask(m);
+            let mut b = llm.borrow_mut();
+            let reply = b.specialize(routed).and_then(|_| b.ask(m));
             tick(&model_time, started);
             reply
         };
         let mut resample = |m: &[Message], attempt: usize| {
             let started = std::time::Instant::now();
-            let reply = llm.borrow_mut().sample(m, attempt);
+            let mut b = llm.borrow_mut();
+            let reply = b.specialize(routed).and_then(|_| b.sample(m, attempt));
+            tick(&model_time, started);
+            reply
+        };
+        // The second look judges under the precision adapter whichever way the request
+        // routed: the restriction adapter is trained to push a program aside, and it
+        // reads doubt into answers that obey the push.
+        let mut verify_chat = |m: &[Message]| {
+            let started = std::time::Instant::now();
+            let mut b = llm.borrow_mut();
+            let reply = b.specialize(lxask_core::route::Adapter::Precision).and_then(|_| b.ask(m));
             tick(&model_time, started);
             reply
         };
@@ -634,6 +653,7 @@ impl Loaded {
             &mut search,
             self.catalog.as_ref(),
             if retry { Some(&mut resample as &mut answer::Resample) } else { None },
+            if verify { Some(&mut verify_chat as &mut answer::Chat) } else { None },
         );
         let stats = llm.borrow_mut().take_stats(); // taken every time, so each answer counts its own
         if lxask_core::setting("TIMING").is_some() {
@@ -642,6 +662,31 @@ impl Loaded {
                       mt.as_secs_f64(), stats.prompt_tokens, stats.prompt_secs, stats.reply_tokens, stats.reply_secs, st.as_secs_f64());
         }
         steps
+    }
+
+    /// The second look on a command given directly (`{"q": ..., "cmd": ...}` batch
+    /// records), so the look can be measured on commands chosen ahead, not generated.
+    fn look(&mut self, question: &str, command: &str, rag: bool) -> Result<Value, Error> {
+        let llm = &self.llm;
+        llm.borrow_mut().specialize(lxask_core::route::Adapter::Precision)?;
+        let Some(catalog) = self.catalog.as_ref() else {
+            return Ok(json!({"verdict": "skipped", "reason": "no catalogue"}));
+        };
+        let notes = match self.retriever.as_mut() {
+            Some(r) if rag => r.search(question, N_COMMANDS, TOP_EXAMPLES, OTHER_EXAMPLES)?,
+            _ => Vec::new(),
+        };
+        let described = lxask_core::explain::explain(command, catalog);
+        let ruled = lxask_core::constraints::forbidden(question);
+        let messages = lxask_core::verify::messages(question, command, &notes, &described, &ruled);
+        let reply = llm.borrow_mut().ask(&messages)?.unwrap_or_default();
+        let verdict = match lxask_core::verify::verdict(&reply) {
+            lxask_core::verify::Verdict::Ok => "ok",
+            lxask_core::verify::Verdict::Wrong(_) => "wrong",
+            lxask_core::verify::Verdict::Unknown => "unknown",
+        };
+        let objection = lxask_core::verify::objection(&reply, command, question);
+        Ok(json!({"verdict": verdict, "objection": objection, "raw": reply}))
     }
 
     /// One question answered, as printed: the same here and in the server. An
@@ -658,7 +703,7 @@ impl Loaded {
         let flag = |key: &str| message.get(key).and_then(Value::as_bool).unwrap_or(true);
         let question = message.get("question").and_then(Value::as_str).unwrap_or("");
         let started = std::time::Instant::now();
-        let answered = self.answer(question, flag("rag"), flag("retry"));
+        let answered = self.answer(question, flag("rag"), flag("retry"), flag("verify") && config::verify());
         timing("answer", started);
         let steps = match answered {
             Ok(steps) => steps,
@@ -749,7 +794,8 @@ fn debug_embed(argv: &[String]) -> ExitCode {
 }
 
 /// `lxask batch IN.jsonl OUT.jsonl`: answer every {"q": ...} line, for evaluating the
-/// binary itself (scripts/eval.py --engine rust). Not in --help.
+/// binary itself (scripts/eval.py --engine rust). A {"q": ..., "cmd": ...} line skips
+/// answering and gives only the second look's verdict on that command. Not in --help.
 fn batch(argv: &[String]) -> ExitCode {
     let mut paths = Vec::new();
     let mut model = config::model_path();
@@ -758,6 +804,7 @@ fn batch(argv: &[String]) -> ExitCode {
     let mut index = None;
     let mut retry = true;
     let mut rag = true;
+    let mut verify = config::verify();
     let mut threads = None;
     let mut items = argv.iter();
     while let Some(arg) = items.next() {
@@ -773,12 +820,14 @@ fn batch(argv: &[String]) -> ExitCode {
             "--threads" => threads = items.next().and_then(|n| n.parse().ok()),
             "--no-retry" => retry = false,
             "--no-rag" => rag = false,
+            "--verify" => verify = true,
+            "--no-verify" => verify = false,
             _ => paths.push(PathBuf::from(arg)),
         }
     }
     let [input, output] = &paths[..] else {
         eprintln!("usage: lxask batch [--model M] [--adapter A] [--precision P] [--no-adapter] [--index I] [--threads N] \
-                   [--no-retry] [--no-rag] IN.jsonl OUT.jsonl");
+                   [--no-retry] [--no-rag] [--verify|--no-verify] IN.jsonl OUT.jsonl");
         return ExitCode::from(2);
     };
     let mut loaded = match Loaded::load(&model, restrict, precision, index, !rag, threads) {
@@ -809,7 +858,22 @@ fn batch(argv: &[String]) -> ExitCode {
             }
             continue;
         }
-        let result = match loaded.answer(&question, rag, retry) {
+        if let Some(command) = record.get("cmd").and_then(Value::as_str) {
+            let result = match loaded.look(&question, command, rag) {
+                Ok(mut looked) => {
+                    looked["q"] = json!(question);
+                    looked["cmd"] = json!(command);
+                    looked["seconds"] = json!(started.elapsed().as_secs_f64());
+                    looked
+                }
+                Err(error) => json!({"q": question, "cmd": command, "error": error.to_string()}),
+            };
+            if writeln!(out, "{result}").is_err() {
+                return ExitCode::from(1);
+            }
+            continue;
+        }
+        let result = match loaded.answer(&question, rag, retry, verify) {
             Ok(steps) => json!({
                 "q": question,
                 "steps": steps.iter().map(|s| json!({"task": s.task, "command": s.command, "issues": s.issues,

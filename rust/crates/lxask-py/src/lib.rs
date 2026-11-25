@@ -580,7 +580,7 @@ where
 }
 
 #[pyfunction]
-#[pyo3(name = "answer", signature = (question, chat, search, catalog, resample = None))]
+#[pyo3(name = "answer", signature = (question, chat, search, catalog, resample = None, verify = None))]
 fn answer_steps(
     py: Python<'_>,
     question: &str,
@@ -588,10 +588,12 @@ fn answer_steps(
     search: &Bound<'_, PyAny>,
     catalog: Option<PyRef<'_, Catalog>>,
     resample: Option<&Bound<'_, PyAny>>,
+    verify: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<Vec<StepTuple>> {
     let mut chat = chat_of(py, chat);
     let mut search = search_of(search);
     let mut resample_fn = resample.filter(|r| !r.is_none()).map(|r| resample_of(py, r));
+    let mut verify_fn = verify.filter(|v| !v.is_none()).map(|v| chat_of(py, v));
     let catalog = catalog.as_ref().map(|c| &c.inner);
     let steps = answer::answer(
         question,
@@ -599,6 +601,7 @@ fn answer_steps(
         &mut search,
         catalog,
         resample_fn.as_mut().map(|f| f as &mut answer::Resample),
+        verify_fn.as_mut().map(|f| f as &mut answer::Chat),
     )
     .map_err(to_py_err)?;
     Ok(steps.into_iter().map(step_tuple).collect())

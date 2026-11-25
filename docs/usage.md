@@ -45,8 +45,13 @@ Common `unverified` lines:
 | `pbcopy: not a Linux command` | a macOS or BSD command |
 | `the request says '.log'; the command does not have it` | a detail you named is missing |
 | `the request says without lsof; the command uses it` | it used a program you ruled out |
+| `the second look judges this answer wrong: ...` | the model, asked again with the documentation, doubts the answer does what you asked |
 
-lxask has already tried up to three answers before showing one with such a line.
+lxask has already tried up to three answers before showing one with such a line —
+and an answer nothing objects to gets one more look from the model, asked with the
+documentation whether it does what was meant. A "wrong" sends it back for another
+answer; one the look keeps doubting comes marked `the second look judges this
+answer wrong` ([the second look](how-it-works.md#the-second-look)).
 
 No `unverified:` line means the programs and options are real and the line can run,
 not that it does what you meant: read it before you run it
@@ -284,6 +289,7 @@ Without a link: open an issue with the "Bad answer" template on
 | `--explain COMMAND` | explain and check a command you already have, below |
 | `--shell-init bash\|zsh\|fish` | print the Ctrl+G key binding, above |
 | `--no-retry` | keep the first answer even if the checks object (faster) |
+| `--no-verify` | skip the model's second look at an answer the checks pass (faster) |
 | `--no-rag` | answer without the documentation notes |
 | `--show-context` | print the notes the model was given, to stderr |
 | `--threads N` | CPU threads (default: one per core; half the CPUs on a machine with hyperthreads, and in an x86 virtual machine) |

@@ -119,6 +119,13 @@ pub fn update_check() -> bool {
     setting("LXASK_UPDATE_CHECK", "update_check").as_deref().and_then(truthy).unwrap_or(true)
 }
 
+/// Whether an answer the checks found nothing wrong with gets a second look from the
+/// model before it is shown (LXASK_VERIFY or `verify = off` turns it off); on when
+/// nothing says so.
+pub fn verify() -> bool {
+    setting("LXASK_VERIFY", "verify").as_deref().and_then(truthy).unwrap_or(true)
+}
+
 /// The catalogue in the index at `index`, reading this machine's manual pages too
 /// unless that is turned off.
 pub fn catalog(index: &Path) -> Option<lxask_core::validate::Catalog> {
