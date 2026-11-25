@@ -120,10 +120,24 @@ const REASON_FILLER: &[&str] = &[
     "this", "to", "use", "uses", "using", "with", "without",
 ];
 
+/// A word stripped for comparing: its own inflections ("prints" for "print",
+/// "deleted" for "delete") should not pass for new content.
+fn word(word: &str) -> String {
+    let word = word.to_lowercase();
+    for suffix in ["ing", "edly", "ed", "ly", "es", "s"] {
+        if let Some(stem) = word.strip_suffix(suffix) {
+            if stem.len() > 2 {
+                return stem.to_string();
+            }
+        }
+    }
+    word
+}
+
 fn words(text: &str) -> std::collections::HashSet<String> {
     text.split(|c: char| !(c.is_ascii_alphanumeric() || c == '_' || c == '-'))
         .filter(|w| !w.is_empty())
-        .map(|w| w.to_lowercase())
+        .map(word)
         .collect()
 }
 
@@ -134,20 +148,27 @@ pub fn meaningful(reason: &str, command: &str, task: &str) -> bool {
     let known: std::collections::HashSet<String> = words(command)
         .into_iter()
         .chain(words(task))
-        .chain(REASON_FILLER.iter().map(|w| w.to_string()))
+        .chain(REASON_FILLER.iter().map(|w| word(w)))
         .collect();
     words(reason).iter().any(|w| !known.contains(w))
 }
 
 /// Whether a command earns the extra generation. The look's value scales with what
-/// can go wrong: pipes, several programs, substitutions and several options are where
-/// semantic slips live; a one-program, one-option line it mostly doubts for free, and
-/// the doubt is usually wrong. A request that rules a program out is the exception —
-/// the look catches the ruled-out program sneaking back in under another name.
-pub fn worth_a_look(described: &[Described], ruled_out: &[String]) -> bool {
-    !ruled_out.is_empty()
-        || described.len() > 1
-        || described.first().map_or(0, |d| d.options.len()) > 1
+/// can go wrong: several programs, several options or any compound shell — a pipe, a
+/// redirect, a substitution — is where semantic slips live; a one-program, one-option
+/// line it mostly doubts for free, and the doubt is usually wrong. Wrappers do not
+/// count as programs of their own — `sudo chown -R` is still a one-program answer. A
+/// request that rules a program out is the exception — the look catches the ruled-out
+/// program sneaking back in under another name.
+pub fn worth_a_look(command: &str, described: &[Described], ruled_out: &[String]) -> bool {
+    if !ruled_out.is_empty() {
+        return true;
+    }
+    if command.contains(|c: char| "|&;<>".contains(c)) || command.contains("$(") || command.contains('`') {
+        return true;
+    }
+    let real = described.iter().filter(|d| !crate::validate::WRAPPERS.contains(&d.program.as_str())).count();
+    real > 1 || described.iter().map(|d| d.options.len()).sum::<usize>() > 1
 }
 
 /// The objection a look's reply amounts to: the reason a "wrong" gives, when it is a
@@ -235,12 +256,20 @@ mod tests {
             Described { program: "du".into(), summary: String::new(), options: vec![] },
             Described { program: "sort".into(), summary: String::new(), options: vec![] },
         ];
-        assert!(!worth_a_look(&one_option, &[]));
-        assert!(!worth_a_look(&[], &[]));
-        assert!(worth_a_look(&two_options, &[]));
-        assert!(worth_a_look(&two_programs, &[]));
+        let wrapped = vec![
+            Described { program: "sudo".into(), summary: String::new(), options: vec![] },
+            Described { program: "chown".into(), summary: String::new(), options: vec![("-R".into(), "recursive".into())] },
+        ];
+        let no_programs: Vec<Described> = vec![Described { program: "paste".into(), summary: String::new(), options: vec![] }];
+        assert!(!worth_a_look("find . -name '*.log'", &one_option, &[]));
+        assert!(!worth_a_look("id -un", &[], &[]));
+        assert!(!worth_a_look("sudo chown -R d", &wrapped, &[])); // sudo chown -R is still a one-program answer
+        assert!(worth_a_look("paste f1 f2 > out", &no_programs, &[])); // the redirect is structure
+        assert!(worth_a_look("kill $(pidof x)", &[], &[]));
+        assert!(worth_a_look("find . -name '*.log' -type f", &two_options, &[]));
+        assert!(worth_a_look("du -h . | sort -h", &two_programs, &[]));
         // a request that rules a program out keeps its look, however plain the answer
-        assert!(worth_a_look(&one_option, &["wc".to_string()]));
+        assert!(worth_a_look("awk 'END {print NR}' f", &one_option, &["wc".to_string()]));
     }
 
     #[test]
@@ -254,6 +283,8 @@ mod tests {
             Some("shows only listening UDP sockets")
         );
         assert_eq!(objection("wrong: the command does not sort by size", "sort -s f", "sort by size"), None);
+        // inflections do not count as new content: "prints ..." for a "print ..." task
+        assert_eq!(objection("wrong: prints the user name without whoami", "id -un", "print the user name without whoami"), None);
         assert_eq!(
             objection("wrong: -s is a stable sort, not by size", "sort -s f", "sort by size").as_deref(),
             Some("-s is a stable sort, not by size")

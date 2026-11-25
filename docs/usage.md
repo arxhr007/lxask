@@ -48,10 +48,10 @@ Common `unverified` lines:
 | `the second look judges this answer wrong: ...` | the model, asked again with the documentation, doubts the answer does what you asked |
 
 lxask has already tried up to three answers before showing one with such a line —
-and an answer nothing objects to gets one more look from the model, asked with the
-documentation whether it does what was meant. A "wrong" sends it back for another
-answer; one the look keeps doubting comes marked `the second look judges this
-answer wrong` ([the second look](how-it-works.md#the-second-look)).
+and an answer with enough moving parts to doubt gets one more look from the model,
+asked with the documentation whether it does what was meant. A "wrong" sends it
+back for another answer; one the look keeps doubting comes marked `the second
+look judges this answer wrong` ([the second look](how-it-works.md#the-second-look)).
 
 No `unverified:` line means the programs and options are real and the line can run,
 not that it does what you meant: read it before you run it
