@@ -1,11 +1,14 @@
+import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 import eval as evaluation
+import exec_eval as execution
 from lxask.answer import Step
 from lxask.validate import build_catalog
 
@@ -54,3 +57,27 @@ def test_expected_clarification_is_not_an_empty_answer_failure(catalog):
 def test_unexpected_clarification_cannot_pass(catalog):
     case = {"set": "forbidden_heldout", "q": "list files without find", "forbid": ["find"]}
     assert evaluation.score(case, [Step(case["q"], "ls")], catalog, asked=True)["pass"] is False
+
+
+@pytest.mark.parametrize("no_verify", [False, True])
+@pytest.mark.parametrize("engine", [evaluation, execution])
+def test_binary_evaluations_choose_verification_explicitly(tmp_path, monkeypatch, no_verify, engine):
+    # An installed opt-out must not silently change what an evaluation measures.
+    monkeypatch.setenv("LXASK_VERIFY", "off")
+    calls = []
+
+    def run(command, check):
+        calls.append(command)
+        Path(command[-1]).write_text(json.dumps({"q": "list files", "steps": []}) + "\n")
+
+    monkeypatch.setattr(engine.subprocess, "run", run)
+    args = SimpleNamespace(binary="lxask", model=tmp_path / "model", index=tmp_path / "index",
+                           no_retry=False, no_rag=False, no_verify=no_verify,
+                           adapter=None, precision=None, threads=None)
+    cases = [{"q": "list files"}]
+    if engine is evaluation:
+        evaluation.binary_answers(cases, args)
+    else:
+        execution.binary_commands(cases, args.binary, args.model, args.index, args)
+    assert ("--no-verify" in calls[0]) == no_verify
+    assert ("--verify" in calls[0]) == (not no_verify)

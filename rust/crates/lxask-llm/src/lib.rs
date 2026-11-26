@@ -136,7 +136,7 @@ fn context_params(n_ctx: u32, n_threads: i32) -> LlamaContextParams {
         .with_n_batch(N_BATCH.min(n_ctx))
         .with_n_ubatch(N_BATCH.min(n_ctx))
         .with_n_threads(n_threads)
-        .with_n_threads_batch(logical_cpus())
+        .with_n_threads_batch(n_threads)
         .with_flash_attention_policy(llama_cpp_sys_2::LLAMA_FLASH_ATTN_TYPE_DISABLED)
 }
 

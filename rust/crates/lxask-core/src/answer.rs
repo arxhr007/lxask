@@ -1,5 +1,5 @@
-//! From a question to checked, explained steps. No I/O here: the model, the search and
-//! the catalogue are passed in, so the whole flow can be tested without any of them.
+//! From a question to checked, explained steps. The model, the search and the
+//! catalogue are passed in; the checks may consult local programs and parse shell.
 //!
 //! ```text
 //! question -> split into tasks -> per task: retrieve -> command -> validate and check
@@ -61,7 +61,7 @@ fn checked(task: &str, reply: Option<String>, catalog: Option<&Catalog>, request
         return (String::new(), Vec::new(), Vec::new());
     }
     let issues = match catalog {
-        Some(catalog) => check(&command, catalog, false).into_iter().map(|i| i.detail).collect(),
+        Some(catalog) => check(&command, catalog, true).into_iter().map(|i| i.detail).collect(),
         None => Vec::new(),
     };
     let misses = constraints::check(task, &command, request).into_iter().map(|m| m.detail).collect();
@@ -185,11 +185,13 @@ pub fn answer(
         if let (Some(look), Some(catalog)) = (verify.as_deref_mut(), catalog) {
             let mut retried = 0;
             while !command.is_empty() && issues.is_empty() && misses.is_empty() {
-                let described = explain(&command, catalog);
                 let ruled: Vec<String> = ruled_out.iter().chain(task_rules_out.iter()).cloned().collect();
-                if !verify::worth_a_look(&command, &described, &ruled) {
+                if retried == 0 && !verify::worth_a_look(&command, catalog, &ruled) {
                     break;
                 }
+                // A retry was requested to resolve an actual doubt. It must get its
+                // own look even when it happens to be simpler than the first answer.
+                let described = explain(&command, catalog);
                 let reply = look(&verify::messages(&task, &command, &notes, &described, &ruled))?.unwrap_or_default();
                 let Some(reason) = verify::objection(&reply, &command, &task) else { break };
                 doubted = true;
@@ -204,8 +206,9 @@ pub fn answer(
                 }
                 let candidate = checked(&task, resample(&verify::retry_messages(&messages, &command, &doubt), tries - 1)?, Some(catalog), question);
                 tries += 1;
-                // the retry keeps the doubt unless it answers cleanly; its own look is next
-                if candidate.0.is_empty() || !candidate.1.is_empty() || !candidate.2.is_empty() {
+                // The retry keeps the doubt unless it changes the command and answers
+                // cleanly. Repeating it has the same evidence and needs no new judgment.
+                if candidate.0.is_empty() || candidate.0 == command || !candidate.1.is_empty() || !candidate.2.is_empty() {
                     break;
                 }
                 (command, issues, misses) = candidate;
@@ -247,8 +250,7 @@ pub fn answer(
 }
 
 /// A command someone already has, checked and described the way an answer is
-/// (`lxask --explain`): no model, only the catalogue and the safety rules. The shell is
-/// asked to parse it too, since unlike a model's answer it may be any length or shape.
+/// (`lxask --explain`): no model, only the catalogue, shell syntax and the safety rules.
 pub fn describe(command: &str, catalog: Option<&Catalog>) -> Step {
     let command = py::strip(command).to_string();
     let mut step = Step { command: command.clone(), ..Step::new("") };
@@ -552,6 +554,64 @@ mod tests {
     }
 
     #[test]
+    fn a_simpler_redo_still_has_to_answer_the_doubt() {
+        let catalog = find_catalog();
+        let mut chat = tasks_then("find /etc -name '*.log' -type f");
+        let mut search = |_: &str| Ok(Vec::new());
+        let mut resample = |_: &[Message], _: usize| {
+            Ok(Some(crate::prompt::format_answer("find /var/log -name '*.log'")))
+        };
+        let looks = std::cell::Cell::new(0);
+        let mut verify = |_: &[Message]| {
+            looks.set(looks.get() + 1);
+            Ok(Some("wrong: it searches the wrong directory".to_string()))
+        };
+        let steps =
+            answer("find the .log files", &mut chat, &mut search, Some(&catalog), Some(&mut resample), Some(&mut verify)).unwrap();
+        assert_eq!(looks.get(), 2);
+        assert_eq!(steps[0].command, "find /etc -name '*.log' -type f");
+        assert_eq!(steps[0].tries, 2);
+        assert_eq!(steps[0].misses, vec!["the second look judges this answer wrong: it searches the wrong directory"]);
+    }
+
+    #[test]
+    fn repeating_a_doubted_command_does_not_need_another_look() {
+        let catalog = find_catalog();
+        let mut chat = tasks_then("find /etc -name '*.log' -type f");
+        let mut search = |_: &str| Ok(Vec::new());
+        let mut resample = |_: &[Message], _: usize| {
+            Ok(Some(crate::prompt::format_answer("find /etc -name '*.log' -type f")))
+        };
+        let looks = std::cell::Cell::new(0);
+        let mut verify = |_: &[Message]| {
+            looks.set(looks.get() + 1);
+            Ok(Some("wrong: it searches the wrong directory".to_string()))
+        };
+        let steps =
+            answer("find the .log files", &mut chat, &mut search, Some(&catalog), Some(&mut resample), Some(&mut verify)).unwrap();
+        assert_eq!(looks.get(), 1);
+        assert_eq!(steps[0].tries, 2);
+        assert_eq!(steps[0].command, "find /etc -name '*.log' -type f");
+        assert_eq!(steps[0].misses, vec!["the second look judges this answer wrong: it searches the wrong directory"]);
+    }
+
+    #[test]
+    fn missing_option_descriptions_do_not_make_a_command_trivial() {
+        let mut catalog = find_catalog();
+        catalog.texts.clear();
+        let mut chat = tasks_then("find . -type f -name '*.log'");
+        let mut search = |_: &str| Ok(Vec::new());
+        let looks = std::cell::Cell::new(0);
+        let mut verify = |_: &[Message]| {
+            looks.set(looks.get() + 1);
+            Ok(Some("ok".to_string()))
+        };
+        let steps = answer("find the .log files", &mut chat, &mut search, Some(&catalog), None, Some(&mut verify)).unwrap();
+        assert!(steps[0].issues.is_empty());
+        assert_eq!(looks.get(), 1);
+    }
+
+    #[test]
     fn a_doubt_without_a_reason_and_without_retry_still_marks() {
         let catalog = find_catalog();
         let mut chat = tasks_then("find . -name '*.log' -type f");
@@ -591,6 +651,25 @@ mod tests {
         assert_eq!(looks.get(), 0);
         assert_eq!(steps[0].issues, vec!["find: -frobnicate is not a documented option".to_string()]);
         assert!(steps[0].misses.is_empty());
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn invalid_shell_is_caught_before_the_model_judges_it() {
+        let catalog = find_catalog();
+        let mut chat = tasks_then("find . -type f |");
+        let mut search = |_: &str| Ok(Vec::new());
+        let mut verify = |_: &[Message]| panic!("a syntax error must not need a model judgment");
+        let steps = answer("find files", &mut chat, &mut search, Some(&catalog), None, Some(&mut verify)).unwrap();
+        assert!(steps[0].issues.iter().any(|issue| issue.contains("syntax error")));
+
+        let mut resample = |_: &[Message], _: usize| Ok(Some(crate::prompt::format_answer("find . -type f")));
+        let steps = answer(
+            "find files", &mut chat, &mut search, Some(&catalog), Some(&mut resample), Some(&mut verify),
+        ).unwrap();
+        assert_eq!(steps[0].command, "find . -type f");
+        assert!(steps[0].issues.is_empty());
+        assert_eq!(steps[0].tries, 2);
     }
 
     #[test]

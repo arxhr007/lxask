@@ -11,6 +11,7 @@
 use crate::explain::Described;
 use crate::prompt::{format_context, Doc, Message, MAX_CONTEXT_CHARS};
 use crate::py;
+use crate::validate::{uses, Catalog, WRAPPERS};
 
 /// A doubted answer gets this many new tries, each looked at in turn.
 pub const RETRIES: usize = 1;
@@ -160,15 +161,20 @@ pub fn meaningful(reason: &str, command: &str, task: &str) -> bool {
 /// count as programs of their own — `sudo chown -R` is still a one-program answer. A
 /// request that rules a program out is the exception — the look catches the ruled-out
 /// program sneaking back in under another name.
-pub fn worth_a_look(command: &str, described: &[Described], ruled_out: &[String]) -> bool {
+pub fn worth_a_look(command: &str, catalog: &Catalog, ruled_out: &[String]) -> bool {
     if !ruled_out.is_empty() {
         return true;
     }
-    if command.contains(|c: char| "|&;<>".contains(c)) || command.contains("$(") || command.contains('`') {
+    if command.contains(|c: char| "|&;<>\n".contains(c)) || command.contains("$(") || command.contains('`') {
         return true;
     }
-    let real = described.iter().filter(|d| !crate::validate::WRAPPERS.contains(&d.program.as_str())).count();
-    real > 1 || described.iter().map(|d| d.options.len()).sum::<usize>() > 1
+    // Descriptions omit options with no prose and programs with no summary. The
+    // parser still knows those parts exist, so missing evidence must not buy a skip.
+    let Ok(found) = uses(command, catalog) else { return true };
+    let real = found.iter().filter(|u| !WRAPPERS.contains(&u.program.as_str())).count();
+    let options: usize = found.iter().flat_map(|u| &u.options)
+        .map(|(_, flags)| flags.as_ref().map_or(1, |flags| flags.len().max(1))).sum();
+    real > 1 || options > 1
 }
 
 /// The objection a look's reply amounts to: the reason a "wrong" gives, when it is a
@@ -242,34 +248,26 @@ mod tests {
 
     #[test]
     fn only_commands_with_something_to_check_earn_a_look() {
-        let one_option = vec![Described {
-            program: "find".into(),
-            summary: String::new(),
-            options: vec![("-name".into(), "match name".into())],
-        }];
-        let two_options = vec![Described {
-            program: "find".into(),
-            summary: String::new(),
-            options: vec![("-name".into(), "match name".into()), ("-type".into(), "match type".into())],
-        }];
-        let two_programs = vec![
-            Described { program: "du".into(), summary: String::new(), options: vec![] },
-            Described { program: "sort".into(), summary: String::new(), options: vec![] },
-        ];
-        let wrapped = vec![
-            Described { program: "sudo".into(), summary: String::new(), options: vec![] },
-            Described { program: "chown".into(), summary: String::new(), options: vec![("-R".into(), "recursive".into())] },
-        ];
-        let no_programs: Vec<Described> = vec![Described { program: "paste".into(), summary: String::new(), options: vec![] }];
-        assert!(!worth_a_look("find . -name '*.log'", &one_option, &[]));
-        assert!(!worth_a_look("id -un", &[], &[]));
-        assert!(!worth_a_look("sudo chown -R d", &wrapped, &[])); // sudo chown -R is still a one-program answer
-        assert!(worth_a_look("paste f1 f2 > out", &no_programs, &[])); // the redirect is structure
-        assert!(worth_a_look("kill $(pidof x)", &[], &[]));
-        assert!(worth_a_look("find . -name '*.log' -type f", &two_options, &[]));
-        assert!(worth_a_look("du -h . | sort -h", &two_programs, &[]));
+        let catalog = crate::validate::build_catalog(
+            ["find", "id", "sudo", "chown", "env", "date"],
+            [("find", "-name pattern", ""), ("find", "-type c", ""), ("find", "-delete", ""),
+             ("id", "-u", ""), ("id", "-n", ""), ("id", "-g", ""),
+             ("chown", "-R", ""), ("chown", "-v", ""), ("chown", "-f", "")],
+            [],
+            [],
+        );
+        assert!(!worth_a_look("find . -name '*.log'", &catalog, &[]));
+        assert!(!worth_a_look("id -u", &catalog, &[]));
+        assert!(worth_a_look("id -un", &catalog, &[])); // two flags, even without prose
+        assert!(!worth_a_look("sudo chown -R d", &catalog, &[]));
+        assert!(!worth_a_look("env TZ=UTC date", &catalog, &[]));
+        assert!(worth_a_look("paste f1 f2 > out", &catalog, &[]));
+        assert!(worth_a_look("date\nid -u", &catalog, &[]));
+        assert!(worth_a_look("kill $(pidof x)", &catalog, &[]));
+        assert!(worth_a_look("find . -name '*.log' -type f", &catalog, &[]));
+        assert!(worth_a_look("du -h . | sort -h", &catalog, &[]));
         // a request that rules a program out keeps its look, however plain the answer
-        assert!(worth_a_look("awk 'END {print NR}' f", &one_option, &["wc".to_string()]));
+        assert!(worth_a_look("awk 'END {print NR}' f", &catalog, &["wc".to_string()]));
     }
 
     #[test]

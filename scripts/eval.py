@@ -63,11 +63,10 @@ from statistics import mean
 
 import nl2bash
 from lxask import config
-from lxask.answer import Step, answer, clarification, unhandled
+from lxask.answer import Step, clarification, unhandled
 from lxask.constraints import programs_run
 from lxask.llm import LLM, Embedder
 from lxask.retrieve import Retriever
-from lxask import route
 from lxask.validate import Catalog, load_catalog, uses
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -191,6 +190,7 @@ def binary_answers(cases: list[dict], args) -> list[list[Step]]:
         questions.write_text("".join(json.dumps({"q": case["q"]}) + "\n" for case in cases), encoding="utf-8")
         command = [args.binary, "batch", "--model", str(args.model), "--index", str(args.index)]
         command += ["--no-retry"] * args.no_retry + ["--no-rag"] * args.no_rag
+        command += ["--no-verify" if args.no_verify else "--verify"]
         command += ["--adapter", str(args.adapter)] if args.adapter else ["--no-adapter"]
         command += ["--precision", str(args.precision)] if args.precision else []
         if args.threads:
@@ -218,6 +218,7 @@ def main() -> None:
     parser.add_argument("--threads", type=int)
     parser.add_argument("--resume", action="store_true", help="keep the answers an interrupted run already saved")
     parser.add_argument("--no-retry", action="store_true", help="keep the first answer, as `lxask --no-retry` does")
+    parser.add_argument("--no-verify", action="store_true", help="skip the second look, in either engine")
     parser.add_argument("--engine", choices=("python", "rust"), default="python",
                         help="python: this package through llama-cpp-python (a GPU build runs on the GPU); "
                              "rust: the lxask binary, through `lxask batch` (CPU)")
@@ -267,9 +268,9 @@ def main() -> None:
                 steps, asked = answered_by_binary[i % RUST_BATCH]
             else:
                 asked = clarification(case["q"]) is not None  # the CLI asks back instead of answering
-                llm.specialize("restrict" if args.adapter_always else route.adapter(case["q"], catalog))
-                steps = [] if asked else answer(case["q"], llm.ask, search, catalog,
-                                                resample=None if args.no_retry else llm.sample)
+                steps = [] if asked else llm.answer(
+                    case["q"], search, catalog, retry=not args.no_retry, verify=not args.no_verify,
+                    adapter="restrict" if args.adapter_always else None)
             record = {
                 "set": case["set"],
                 "q": case["q"],
@@ -287,6 +288,7 @@ def main() -> None:
         "model": args.model.name,
         "adapter": args.adapter.name if args.adapter else None,
         "engine": args.engine,
+        "verify": not args.no_verify,
         "rag": mode,
         **summarise(records),
         "seconds_per_question": elapsed / len(cases) if cases else None,

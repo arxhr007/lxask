@@ -1,5 +1,5 @@
-"""From a question to checked, explained steps. No I/O here: the model, the search and
-the catalogue are passed in, so the whole flow can be tested without any of them.
+"""From a question to checked, explained steps. The model, the search and the
+catalogue are passed in; the checks may consult local programs and parse shell.
 
     question -> split into tasks -> per task: retrieve -> command -> validate and check
              against the task (another try if either objects) -> explain -> safety
@@ -65,12 +65,13 @@ def unhandled(question: str, steps: list[Step]) -> list[str]:
 
 
 def answer(question: str, chat: Chat, search: Search, catalog: Catalog | None,
-           resample: Resample | None = None) -> list[Step]:
+           resample: Resample | None = None, verify: Chat | None = None) -> list[Step]:
     """One step per task in the question. Without a catalogue, commands are not
     validated or explained. With `resample`, an answer that is missing, or that the
     validator or the task check objects to, gets up to RETRIES more tries, and the one
-    with the fewest objections is kept (the first answer on a tie)."""
-    return [_step(row) for row in _core.answer(question, chat, search, catalog, resample)]
+    with the fewest objections is kept (the first answer on a tie). With `verify`,
+    complex answers that pass the checks get a second look from that callable."""
+    return [_step(row) for row in _core.answer(question, chat, search, catalog, resample, verify)]
 
 
 def render_command(command: str) -> list[str]:

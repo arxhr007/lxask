@@ -236,6 +236,7 @@ def binary_commands(tasks: list[dict], binary: str, model: Path, index: Path, ar
         questions.write_text("".join(json.dumps({"q": task["q"]}) + "\n" for task in tasks), encoding="utf-8")
         command = [binary, "batch", "--model", str(model), "--index", str(index)]
         command += ["--no-retry"] * args.no_retry + ["--no-rag"] * args.no_rag
+        command += ["--no-verify" if args.no_verify else "--verify"]
         command += ["--adapter", str(args.adapter)] if args.adapter else ["--no-adapter"]
         command += ["--precision", str(args.precision)] if args.precision else []
         subprocess.run([*command, str(questions), str(answers)], check=True)
@@ -254,6 +255,7 @@ def main() -> None:
     parser.add_argument("--name")
     parser.add_argument("--limit", type=int)
     parser.add_argument("--no-retry", action="store_true", help="keep the first answer, as `lxask --no-retry` does")
+    parser.add_argument("--no-verify", action="store_true", help="skip the second look, in either engine")
     parser.add_argument("--tasks", type=Path, default=ROOT / "evalsets" / "exec_tasks.jsonl",
                         help="task file (default: evalsets/exec_tasks.jsonl; also evalsets/exec_heldout.jsonl)")
     parser.add_argument("--binary", help="answer with this lxask program (`lxask batch`) instead of the Python pipeline")
@@ -299,10 +301,9 @@ def main() -> None:
 def task_commands(args, tasks: list[dict]) -> list[str]:
     """The command the answering pipeline emits for each task, in order."""
     from lxask import config
-    from lxask.answer import answer, clarification
+    from lxask.answer import clarification
     from lxask.llm import LLM, Embedder
     from lxask.retrieve import Retriever
-    from lxask import route
     from lxask.validate import load_catalog
 
     model = args.model or config.model_path()
@@ -317,9 +318,9 @@ def task_commands(args, tasks: list[dict]) -> list[str]:
                             if path is not None})
     commands = []
     for task in tasks:  # a question the CLI would ask back gets no command, as there
-        llm.specialize("restrict" if args.adapter_always else route.adapter(task["q"], catalog))
-        steps = [] if clarification(task["q"]) else answer(task["q"], llm.ask, search, catalog,
-                                                            resample=None if args.no_retry else llm.sample)
+        steps = [] if clarification(task["q"]) else llm.answer(
+            task["q"], search, catalog, retry=not args.no_retry, verify=not args.no_verify,
+            adapter="restrict" if args.adapter_always else None)
         command = " && ".join(step.command for step in steps if step.command)
         commands.append(command)
         print(f"  $ {task['id']:18} {command[:90]}", flush=True)

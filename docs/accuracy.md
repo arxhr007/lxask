@@ -1,10 +1,10 @@
 # Accuracy and limits
 
-Every number on this page was measured on held-out sets, with commands actually
-run in a sandbox as an unprivileged user — not pattern-matched against a
-reference. That is what a 1.5B-parameter model buys you: answers in about 2
-seconds on a laptop CPU, offline, in roughly 1.3 GB of memory, that still beat
-the untuned model they were trained from on a public benchmark.
+This page separates execution tests, which run commands in a sandbox as an
+unprivileged user, from lighter checks such as choosing the right program.
+They measure different things: a documented command can still answer the wrong
+question. The speed measurements below name the version and setup used; they
+are not a latency guarantee for the current release.
 
 ## Held-out numbers
 
@@ -34,6 +34,21 @@ The precision-adapter row is the headline of the routing design: tasks built to
 punish near-misses — wrong filenames, missing quotes, wrong flags, files
 touched that should be left alone — more than doubled strict execution success
 over the base pipeline (35.0% → 73.8%).
+
+### The second look
+
+The execution benchmarks above predate the second look added in 1.5.9. They do
+not establish an accuracy gain from verification. In its development evaluation,
+13 of 241 generated steps across 210 questions were marked (5.4% of steps);
+manual inspection judged roughly a third of those marks useful. That run preceded
+the final rule that skips simple commands, so it is not a measured flag rate for
+the shipped skip rule.
+
+A mark rate is not an error rate or a correction rate. The same model can approve
+a wrong answer, doubt a correct one, or produce a worse retry. Skipping simple
+commands also leaves wrong one-option answers unchecked. The cost depends on how
+many commands earn a look and how many retries occur; the earlier estimate of
+about 15% average overhead was not an end-to-end measurement or an upper bound.
 
 ## The public benchmark: NL2SH-ALFA
 

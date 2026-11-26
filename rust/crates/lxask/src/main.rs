@@ -666,21 +666,26 @@ impl Loaded {
 
     /// The second look on a command given directly (`{"q": ..., "cmd": ...}` batch
     /// records), so the look can be measured on commands chosen ahead, not generated.
-    fn look(&mut self, question: &str, command: &str, rag: bool) -> Result<Value, Error> {
-        let llm = &self.llm;
-        llm.borrow_mut().specialize(lxask_core::route::Adapter::Precision)?;
+    fn look(&mut self, question: &str, command: &str, rag: bool, verify: bool) -> Result<Value, Error> {
+        if !verify {
+            return Ok(json!({"verdict": "skipped", "objection": null, "raw": "", "reason": "verification disabled"}));
+        }
         let Some(catalog) = self.catalog.as_ref() else {
             return Ok(json!({"verdict": "skipped", "reason": "no catalogue"}));
         };
-        let notes = match self.retriever.as_mut() {
+        let ruled = lxask_core::constraints::forbidden(question);
+        if !lxask_core::verify::worth_a_look(command, catalog, &ruled) {
+            return Ok(json!({"verdict": "skipped", "objection": null, "raw": ""}));
+        }
+        let mut notes = match self.retriever.as_mut() {
             Some(r) if rag => r.search(question, N_COMMANDS, TOP_EXAMPLES, OTHER_EXAMPLES)?,
             _ => Vec::new(),
         };
+        // Match answer(): forbidden programs are not evidence for the alternative.
+        notes.retain(|doc| !ruled.contains(&lxask_core::retrieve::program(&doc.cmd).to_lowercase()));
         let described = lxask_core::explain::explain(command, catalog);
-        let ruled = lxask_core::constraints::forbidden(question);
-        if !lxask_core::verify::worth_a_look(command, &described, &ruled) {
-            return Ok(json!({"verdict": "skipped", "objection": null, "raw": ""}));
-        }
+        let llm = &self.llm;
+        llm.borrow_mut().specialize(lxask_core::route::Adapter::Precision)?;
         let messages = lxask_core::verify::messages(question, command, &notes, &described, &ruled);
         let reply = llm.borrow_mut().ask(&messages)?.unwrap_or_default();
         let verdict = match lxask_core::verify::verdict(&reply) {
@@ -862,7 +867,7 @@ fn batch(argv: &[String]) -> ExitCode {
             continue;
         }
         if let Some(command) = record.get("cmd").and_then(Value::as_str) {
-            let result = match loaded.look(&question, command, rag) {
+            let result = match loaded.look(&question, command, rag, verify) {
                 Ok(mut looked) => {
                     looked["q"] = json!(question);
                     looked["cmd"] = json!(command);
