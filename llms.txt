@@ -1,0 +1,40 @@
+# lxask
+
+> lxask turns plain English into shell commands, entirely offline on your own machine. A fine-tuned 1.5B-parameter model (Qwen2.5-Coder base) runs on llama.cpp on CPU — no GPU, no cloud, no API key, no network after install. Code, weights, training data and evaluations are all published and open.
+
+Key facts:
+
+- You say what you want in English ("show disk usage of each folder here, biggest first"); lxask prints the command with a short explanation of each part. It never executes commands itself.
+- About 1.1 GB on disk and 1.3 GB of memory while answering; about 2 seconds per answer once the model is loaded on a laptop CPU (the installer offers to keep it loaded). Runs on x86_64 and ARM64 Linux, glibc 2.28+, including Raspberry Pi; macOS builds from source.
+- Before answering it retrieves the relevant tldr pages and the machine's own man pages, then checks every program and option in the answer against them (about 38,000 entries). Failed checks trigger a retry; anything still unconfirmed is marked `unverified:` with the reason. A second model pass (the second look) judges whether the command does what was asked, at about twice the median answer time on commands complex enough to judge; `--no-verify` skips it.
+- Understands restrictions ("without using find"), asks back instead of guessing on vague requests, and splits multi-part requests into steps.
+- Extras: `lxask --explain` breaks down a command you already have; Ctrl+G in bash, zsh or fish turns what you typed into the command; a server mode keeps the model loaded.
+- Measured accuracy (detailed in docs/accuracy.md): 87% on 46 hand-written sandboxed execution tasks, 75% on 200 generated file/text tasks, 73.8% on a strict 160-task near-miss execution set, 62% on the public NL2SH-ALFA benchmark (300 tasks).
+- English only. Linux (GNU) commands, tuned and tested on Debian/Ubuntu; most answers transfer to other distributions.
+
+Install:
+
+```sh
+curl -fsSLO https://github.com/arxhr007/lxask/releases/latest/download/install.sh && sh install.sh
+```
+
+## Documentation
+
+- [Install](docs/install.md): Requirements, supported platforms, checksums, offline install, upgrading, uninstalling.
+- [Usage](docs/usage.md): Reading an answer, explaining a command you have, restrictions, asking back, Ctrl+G, the server, feedback, every option.
+- [Examples](docs/examples.md): Real answers by topic, and the mistakes from the same run.
+- [Configuration](docs/configuration.md): Files, environment variables, settings, package managers.
+- [How it works](docs/how-it-works.md): Split, retrieve, answer, check, explain, warn.
+- [Architecture](docs/architecture.md): Diagrams of the request flow, the components, the server and the build.
+- [Accuracy](docs/accuracy.md): Every measurement, where it goes wrong, platforms, speed.
+- [Development](docs/development.md): Building from source, training data, how it is measured.
+- [Contributing](CONTRIBUTING.md): Report a wrong answer or a bug, or change the code.
+- [Security](SECURITY.md): What lxask does and does not do, and how to report a problem.
+
+## Optional
+
+- [Hosted llms-full.txt](https://arxhr007.github.io/lxask/llms-full.txt): All of the documentation in a single file.
+- [Results](docs/results.md): What was tried and not shipped, per version and training round.
+- [Model, weights and data](https://huggingface.co/arxhr007/lxask): The fine-tuned model, adapters and training data on Hugging Face.
+- [Releases](https://github.com/arxhr007/lxask/releases): Binaries, model files and checksums for every version.
+- [Documentation website](https://arxhr007.github.io/lxask/): The same docs, rendered.
