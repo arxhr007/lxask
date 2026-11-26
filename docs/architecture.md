@@ -15,7 +15,7 @@ What happens between `lxask "..."` and the printed command
 (`rust/crates/lxask/src/main.rs`, `rust/crates/lxask-core/src/answer.rs`):
 
 ```mermaid
-flowchart TD
+flowchart LR
     q(["lxask 'what you want to do'"]) --> about{"about lxask itself?<br/>about::about_itself"}
     about -- yes --> abouttext["print who made lxask<br/>exit 0, no model"]
     about -- no --> vague{"too vague?<br/>clarify::clarification"}
@@ -154,7 +154,7 @@ flowchart LR
 Offline, on a machine with a GPU (a free Colab T4 or a laptop RTX card):
 
 ```mermaid
-flowchart TD
+flowchart LR
     subgraph sources ["sources: scripts/fetch_sources.py"]
         tldr["tldr-pages"]
         nl2bash["NL2Bash"]
