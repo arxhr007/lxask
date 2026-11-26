@@ -47,8 +47,10 @@ the shipped skip rule.
 A mark rate is not an error rate or a correction rate. The same model can approve
 a wrong answer, doubt a correct one, or produce a worse retry. Skipping simple
 commands also leaves wrong one-option answers unchecked. The cost depends on how
-many commands earn a look and how many retries occur; the earlier estimate of
-about 15% average overhead was not an end-to-end measurement or an upper bound.
+many commands earn a look and how many retries occur; on a 31-question
+development set it measured roughly +65-75% total time, about twice the median
+answer (~3s vs ~6.5s). The earlier estimate of about 15% average overhead was
+not an end-to-end measurement or an upper bound.
 
 ## The public benchmark: NL2SH-ALFA
 

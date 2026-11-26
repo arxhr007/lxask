@@ -38,7 +38,7 @@ $ du -h --max-depth=1 . | sort -hr
 ```
 
 - 🔒 **Private and offline.** Everything runs locally on your CPU. Nothing you ask leaves your machine.
-- ⚡ **Small and fast.** About 1 GB, no GPU needed; about 2 seconds per answer once loaded (the installer offers to keep it loaded).
+- ⚡ **Small and fast.** About 1 GB, no GPU needed; a few seconds per answer once loaded (the installer offers to keep it loaded).
 - ✅ **Checks its own work.** Commands are checked against the man pages and tldr and parsed for shell syntax, then — where there is enough to go wrong — looked at once more against the docs they were written from. The checks flag undocumented parts and known mistakes; passing them does not prove a command will work or do what you meant ([what it can't tell you](docs/how-it-works.md#what-the-check-cannot-tell-you)).
 - ⌨️ **Right on your prompt.** Type what you want, press **Ctrl+G**, and the line becomes the command.
 - 💾 **Runs on very little RAM.** About 1.3 GB at its peak, measured while answering questions.

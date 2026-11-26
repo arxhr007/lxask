@@ -167,7 +167,7 @@ interactivecomments` is set; either way nothing runs.) A request with several st
 becomes one line joined by `&&`. When lxask asks back or answers about itself, your line
 stays as you typed it.
 
-With `lxask --serve` running, Ctrl+G answers in about 2 seconds. To use another key,
+With `lxask --serve` running, Ctrl+G answers in a few seconds. To use another key,
 bind the widget yourself: `bind -x '"\C-x\C-l": __lxask_widget'` (bash),
 `bindkey '^X^L' __lxask_widget` (zsh) or `bind \cx\cl __lxask_widget` (fish).
 
