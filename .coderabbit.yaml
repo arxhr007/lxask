@@ -1,0 +1,96 @@
+# CodeRabbit configuration for lxask.
+# Schema: https://docs.coderabbit.ai/reference/configuration
+
+language: en
+
+reviews:
+  # chill = balanced feedback. If noise still feels high, drop to quiet (important only).
+  profile: chill
+  high_level_summary: true
+  review_status: true
+  poem: false
+  collapse_walkthrough: true
+
+  auto_review:
+    enabled: true
+    drafts: false
+
+  tone_instructions: |
+    This codebase is deliberately terse: compact functions, few comments, dense logic.
+    Do not ask for more comments, docstrings, or verbosity — that is the house style.
+    Prioritize, in order: correctness bugs, violations of the project invariants in the
+    path instructions, shell/safety edge cases, then everything else. Skip pure style
+    nitpicks. lxask targets small CPUs and ~1 GB of RAM: allocations and model-context
+    sizes that grow memory are real review findings, not taste.
+
+  path_instructions:
+    - path: "rust/crates/lxask-llm/**"
+      instructions: |
+        CRITICAL INVARIANT — prompt template parity. The ChatML rendering in chatml()
+        must stay byte-identical with the Python inference path (src/lxask/llm.py) and
+        with what the training scripts tokenize (scripts/train_lora.py, scripts/train_grpo.py).
+        The model is fine-tuned on exactly this byte sequence; any divergence — whitespace,
+        newlines, role ordering, generation prompt — silently degrades every answer in
+        production without failing any test. Flag ANY change to prompt construction as
+        requiring an explicit byte-parity check against the other two implementations.
+        Also flag tokenizer calls whose add_special/add_bos arguments change.
+
+    - path: "src/lxask/llm.py"
+      instructions: |
+        Same template-parity invariant as rust/crates/lxask-llm: chat_prompt() and any
+        prefill logic must render byte-identically to the Rust side and to training.
+        This file is the eval/training-side mirror of production inference — behavior
+        differences between them invalidate the published benchmark numbers.
+
+    - path: "scripts/train_lora.py"
+      instructions: |
+        Training must tokenize conversations exactly as inference renders them. The
+        prompt must remain a strict prefix of the full conversation (the encode()
+        assertion depends on it). LoRA target module names are matched by suffix —
+        a misspelled or renamed module matches nothing silently; flag any target list
+        change as needing verification against the actual model's module names.
+
+    - path: "scripts/train_grpo.py"
+      instructions: |
+        Same tokenization-parity requirements as train_lora.py. Reward shaping changes
+        must not reward formatting over correctness of the command itself.
+
+    - path: "rust/crates/lxask-core/**"
+      instructions: |
+        CORE INVARIANT — lxask never executes the commands it generates. It prints them
+        for the user to run. Flag any code path that executes, spawns, or pipes a
+        generated command (tests and the deliberately sandboxed eval harness under
+        scripts/ are the only exceptions). Verification must stay conservative: when
+        the checks or the second look cannot confirm a command, the answer is marked
+        unverified — never silently downgraded, skipped, or dropped. Destructive
+        commands (delete/overwrite/format/kill) must keep their warnings.
+
+    - path: "scripts/install.sh"
+      instructions: |
+        SECURITY-CRITICAL. Checksum and signature verification must never weaken:
+        no new bypass flags that skip verification by default, no fallbacks that
+        continue on mismatch, no tolerance for missing checksum files. Downloads must
+        stay pinned to the release they verify against.
+
+    - path: "docs/**"
+      instructions: |
+        Every quantitative claim in the docs is a measured number (docs/accuracy.md is
+        the source of truth). Flag any edit that improves, rounds up, or softens a
+        number without a corresponding measurement. Honest limitation statements are
+        deliberate — do not suggest removing or marketing-up the failure modes.
+
+    - path: "README.md"
+      instructions: |
+        Numbers here mirror docs/accuracy.md — flag any divergence. Same rule: no
+        improvement of measured claims without the measurement behind it.
+
+    - path: "scripts/nl2sh_alfa_*.py"
+      instructions: |
+        These score the public benchmark. The scoring and answer-cleaning logic is a
+        measuring instrument: flag any change that makes answers more parseable or
+        scoring more lenient in a way that would inflate results rather than measure
+        the model. Baseline variants must stay honest (best-effort prompts, proper
+        formatting cleaning) — a weakened baseline inflates the comparison.
+
+chat:
+  auto_reply: true
