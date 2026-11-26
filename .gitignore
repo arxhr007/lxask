@@ -11,3 +11,6 @@ dist/
 src/lxask/_core*.so
 src/lxask/_core*.pyd
 rust/target/
+
+# Windows: redirecting to nul in a unix shell writes a literal file named nul
+nul
