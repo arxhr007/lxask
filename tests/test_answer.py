@@ -46,6 +46,49 @@ def catalog():
     return build_catalog(["ps", "head", "lsof", "kill", "top", "git", "git commit", "rm"], OPTIONS, summaries=SUMMARIES)
 
 
+def test_python_answer_exposes_the_second_look(catalog):
+    steps = answer(
+        "list processes", lambda _: "```bash\nps -e -o pid\n```", lambda _: [], catalog,
+        verify=lambda _: "wrong: the memory column is missing",
+    )
+    assert steps[0].command == "ps -e -o pid"
+    assert steps[0].misses == ["the second look judges this answer wrong: the memory column is missing"]
+
+
+@pytest.mark.parametrize("verify", [True, False])
+def test_model_answer_restores_the_generator_adapter_after_a_look(catalog, verify):
+    from lxask.llm import LLM
+
+    class Model(LLM):
+        def __init__(self):
+            self.calls, self.looks = [], 0
+
+        def specialize(self, which):
+            self.which = which
+
+        def ask(self, messages):
+            self.calls.append(("ask", self.which))
+            if messages[0]["content"].startswith("You check"):
+                self.looks += 1
+                return "wrong: the memory column is missing" if self.looks == 1 else "ok"
+            return "```bash\nps -e -o pid\n```"
+
+        def sample(self, messages, attempt):
+            self.calls.append(("sample", self.which))
+            return "```bash\nps -e -o pid,rss\n```"
+
+    model = Model()
+    steps = model.answer("list processes without top", lambda _: [], catalog, verify=verify)
+    assert not steps[0].misses
+    if verify:
+        assert model.calls == [("ask", "restrict"), ("ask", "precision"),
+                               ("sample", "restrict"), ("ask", "precision")]
+        assert steps[0].command == "ps -e -o pid,rss"
+    else:
+        assert model.calls == [("ask", "restrict")]
+        assert steps[0].command == "ps -e -o pid"
+
+
 class ScriptedModel:
     """Answers the SPLIT prompt with `tasks` and each ANSWER prompt from `commands`, by task."""
 

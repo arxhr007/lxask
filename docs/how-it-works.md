@@ -77,16 +77,20 @@ becomes `! -path '*/.*'`.
 
 ### The second look
 
-What no check objects to — when there is enough to go wrong, a command with
-several programs or several options — is looked at once more by the model: the
+What no check objects to — a command with several programs, several options,
+compound shell syntax, or a request that rules out a program — is looked at once more by the model: the
 task, the command and the documentation it was written from go back in — the
 retrieved notes and what each option used is documented to do — and the model
 answers "ok" or "wrong". A "wrong" gets one more answer with the objection
 named, and the look at it is the last one. An answer still doubted is shown as
 `unverified: the second look judges this answer wrong: ...` — and at a prompt,
 its command line comes commented out like every flagged one. A one-program,
-one-option line skips the look: it mostly doubted for free there, and the doubt
-was usually wrong.
+one-option line without shell structure or a ruled-out program skips the initial
+look: it mostly doubted for free there, and the doubt was usually wrong. A changed
+retry triggered by a doubt gets its own look, even if the replacement is simpler.
+An unchanged retry keeps the existing doubt without spending another model call.
+Programs and options are counted from the parsed command, including those whose
+documentation has no description.
 
 The look judges from the same notes the answer was written from; it cannot
 confirm more than they hold. It catches some wrong commands that pass every

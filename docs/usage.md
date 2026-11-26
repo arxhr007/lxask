@@ -292,7 +292,7 @@ Without a link: open an issue with the "Bad answer" template on
 | `--no-verify` | skip the model's second look at an answer the checks pass (faster) |
 | `--no-rag` | answer without the documentation notes |
 | `--show-context` | print the notes the model was given, to stderr |
-| `--threads N` | CPU threads (default: one per core; half the CPUs on a machine with hyperthreads, and in an x86 virtual machine) |
+| `--threads N` | CPU threads for reading prompts and generating replies (default: one per core; half the CPUs on a machine with hyperthreads, and in an x86 virtual machine) |
 | `--model FILE` | another model (answers without the adapter) |
 | `--index FILE` | another documentation index |
 | `--serve`, `--idle MIN`, `--stop` | the server, above |

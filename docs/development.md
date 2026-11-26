@@ -41,7 +41,7 @@ cargo-zigbuild`, `pip install ziglang maturin libclang` (bindgen needs libclang;
 root needed). Each takes 5 to 9 minutes with two jobs. A release is then:
 
 ```sh
-scripts/build_release.sh DIR      # the three programs and the Python wheel
+scripts/build_release.sh DIR      # the four programs and the Python wheel
 scripts/release_files.sh DIR      # adds the installed model, adapters, encoder, index,
                                   # LICENSE, NOTICE, install.sh and SHA256SUMS
 gh release create vX.Y.Z -R arxhr007/lxask DIR/*
@@ -112,8 +112,15 @@ uv run python scripts/eval_retrieval.py -v   # does retrieval surface the right 
 uv run python scripts/eval.py                # end to end, through the real pipeline
 uv run python scripts/eval.py --no-rag       # the model without retrieved notes
 uv run python scripts/eval.py --engine rust --binary lxask   # the program itself (`lxask batch`, CPU)
+uv run python scripts/eval.py --no-verify     # compare without the second look (either engine)
 LXASK_ALLOW_EXEC=1 python scripts/exec_eval.py   # runs the commands; Colab or a container only
 ```
+
+Both evaluation engines enable the second look unless `--no-verify` is supplied;
+the choice is explicit rather than inherited from an installed `verify` setting.
+`exec_eval.py` accepts the same switch. Generation and retries use the routed
+adapter, and verification uses the precision adapter. Use the same model, adapters,
+retrieval and verification settings when comparing runs.
 
 | set | what | role |
 |---|---|---|
@@ -160,4 +167,3 @@ llama-cpp-python`). `--binary lxask` takes the answers from the program instead.
 Anything too close to a test case (same command as a reference, or a question
 within 0.92 cosine of one) is removed from the training set, and the count is
 printed by `build_dataset.py`.
-

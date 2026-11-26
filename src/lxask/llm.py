@@ -5,8 +5,13 @@ from __future__ import annotations
 import os
 import platform
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from . import _core, config
+
+if TYPE_CHECKING:
+    from .answer import Search, Step
+    from .validate import Catalog
 
 MAX_TOKENS = 160  # a command line or a short list of tasks; anything longer has gone wrong
 REPEAT_PENALTY = 1.1
@@ -58,6 +63,7 @@ class Embedder:
             n_ctx=512,
             n_batch=512,
             n_threads=n_threads or default_threads(),
+            n_threads_batch=n_threads or default_threads(),
             n_gpu_layers=gpu_layers(),
             verbose=False,
         )
@@ -81,6 +87,7 @@ class LLM:
             model_path=str(model_path),
             n_ctx=n_ctx,
             n_threads=n_threads or default_threads(),
+            n_threads_batch=n_threads or default_threads(),
             n_gpu_layers=gpu_layers(),
             # llama.cpp repacks Q4_K weights into its own buffers at load. With mmap the
             # file's pages stay resident as well, so the model is held twice: measured
@@ -149,3 +156,30 @@ class LLM:
         so that a run can be repeated exactly."""
         reply = self.chat(messages, max_tokens=max_tokens, temperature=SAMPLE_TEMPERATURE, seed=attempt + 1)
         return None if looks_looped(reply) else reply
+
+    def answer(self, question: str, search: Search, catalog: Catalog | None, *,
+               retry: bool = True, verify: bool = True, adapter: str | None = None) -> list[Step]:
+        """Run the shared answer flow with the same adapter choices as the program.
+
+        Every generation restores the routed adapter: a verification call may have
+        switched to precision before a retry or the next step.
+        """
+        from .answer import answer
+        from .route import adapter as route_adapter
+
+        routed = adapter or route_adapter(question, catalog)
+
+        def chat(messages):
+            self.specialize(routed)
+            return self.ask(messages)
+
+        def resample(messages, attempt):
+            self.specialize(routed)
+            return self.sample(messages, attempt)
+
+        def look(messages):
+            self.specialize("precision")
+            return self.ask(messages)
+
+        return answer(question, chat, search, catalog,
+                      resample=resample if retry else None, verify=look if verify else None)
