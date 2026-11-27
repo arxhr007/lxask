@@ -7,6 +7,7 @@ let
   version = (builtins.fromTOML (builtins.readFile ../rust/Cargo.toml)).workspace.package.version;
   base = "https://github.com/arxhr007/lxask/releases/download/${hashes.release}";
 
+  # Model assets are fetched once into the store and shared by the packages.
   models = pkgs.linkFarm "lxask-models" (
     lib.mapAttrsToList (name: hash: {
       inherit name;
@@ -17,6 +18,7 @@ let
     }) hashes.model
   );
 
+  # The CLI built from the rust/ workspace, without model files.
   unwrapped = pkgs.rustPlatform.buildRustPackage {
     pname = "lxask";
     inherit version;
@@ -51,6 +53,7 @@ let
     };
   };
 
+  # Reuses unwrapped and adds the model paths through a wrapper.
   wrapped = pkgs.symlinkJoin {
     name = "lxask-${version}";
     paths = [ unwrapped ];
@@ -70,7 +73,10 @@ let
   };
 in
 {
+  # Binary only; pair with LXASK_SERVER or a separate model install.
   lxask-unwrapped = unwrapped;
+  # Binary plus the bundled model, adapters, encoder and docs index.
   lxask = wrapped;
+  # nix build .#default produces the wrapped package.
   default = wrapped;
 }

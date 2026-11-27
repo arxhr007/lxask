@@ -35,6 +35,7 @@
       };
     in
     {
+      # nix build .#lxask builds the program with the bundled model assets.
       packages = forAll mkPackages;
 
       # For NixOS / home-manager users: nixpkgs.overlays = [ lxask.overlays.default ];
@@ -47,6 +48,7 @@
           inherit (p) lxask lxask-unwrapped;
         };
 
+      # nix develop: Rust toolchain; nix develop .#eval adds Python tooling.
       devShells = forAll (pkgs: {
         default = pkgs.mkShell (
           {
@@ -69,6 +71,7 @@
         );
       });
 
+      # nix flake check builds the unwrapped binary without downloading models.
       checks = forAll (pkgs: {
         build = self.packages.${pkgs.stdenv.hostPlatform.system}.lxask-unwrapped;
       });
