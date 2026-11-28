@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/lxask-core", "crates/lxask-llm", "crates/lxask", "crates/lxask-py"]
 
 [workspace.package]
-version = "1.5.10"
+version = "1.5.11"
 edition = "2021"
 license = "MIT"
 authors = ["Aaron Thomas (arxhr007)"]
