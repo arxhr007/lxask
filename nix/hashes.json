@@ -1,0 +1,10 @@
+{
+  "release": "v1.5.10",
+  "model": {
+    "docs.sqlite": "sha256-MRYQFNY9F1p7fwHNtj5WVBC8UQC0F7knjAkwem2uqlI=",
+    "embed.gguf": "sha256-7Djo2hQllrqpExJK5QVQ3ihLaRa/WVd+8vDLlmDC9RQ=",
+    "lxask-round4-Q4_K_M.gguf": "sha256-Aj7iBkA8f8lqm+E+Gux2HdeY1zxtL4dqbAnDktv5y8U=",
+    "precision-round4.gguf": "sha256-6U5i7d6gztbRaiyvu6Y7hUVQnVyHvV/6iz5JcyXkfeQ=",
+    "restrict-round4.gguf": "sha256-53s9hqq4Ou3xpGSZNZnEtQPVnYCz+nFHtCAiHCFMhUk="
+  }
+}
