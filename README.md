@@ -52,6 +52,9 @@ sh install.sh                                   # about 1.1 GB, once; no root ne
 lxask "find files bigger than 1GB in my home folder"
 ```
 
+With Nix instead: `nix run github:arxhr007/lxask -- "…"` tries it without installing
+anything, `nix profile install github:arxhr007/lxask` installs it.
+
 For Ctrl+G, add one line to `~/.bashrc` (or `zsh` in `~/.zshrc`):
 
 ```sh

@@ -78,6 +78,28 @@ program is kept as `~/.local/share/lxask/lxask.previous` and the previous model 
 Options: `--tag v1.0.0` installs a given release (an older one, say), `--serve` / `--no-serve` answer
 the question above, `--no-test` skips the test question, and `LXASK_HOME` or `LXASK_BIN` install somewhere else.
 
+## With Nix
+
+The repository is a flake, so with [Nix](https://nixos.org/download/) there is nothing
+to download by hand and no install.sh at all:
+
+```sh
+nix run github:arxhr007/lxask -- "find files bigger than 1GB in my home folder"
+```
+
+builds the program from source, downloads the pinned model files (the same 1.1 GB,
+into the nix store) and answers, without installing anything. To install:
+
+```sh
+nix profile install github:arxhr007/lxask
+```
+
+Both work on x86_64 and aarch64 (Raspberry Pi 4 and 5 included), and CI builds exactly
+this on every change. On a nix without flakes enabled, add
+`--extra-experimental-features 'nix-command flakes'`. NixOS and home-manager can use
+the overlay or the unwrapped package instead; the comments in `flake.nix` and
+`nix/packages.nix` say what each output is for.
+
 ## Without a network
 
 On a machine with a network, download every file of a release from its GitHub page
