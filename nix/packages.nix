@@ -71,7 +71,13 @@ let
     '';
     meta = unwrapped.meta // {
       description = "${unwrapped.meta.description} (with bundled models)";
-      license = [ lib.licenses.mit ];
+      # See NOTICE: the model is Apache-2.0, the encoder MIT, and the docs index
+      # carries CC BY 4.0 content plus man page excerpts under their own licences.
+      license = with lib.licenses; [
+        mit
+        asl20
+        cc-by-40
+      ];
     };
   };
 in
