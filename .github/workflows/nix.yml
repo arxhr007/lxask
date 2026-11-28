@@ -1,0 +1,56 @@
+name: nix
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - flake.nix
+      - flake.lock
+      - "nix/**"
+      - .github/workflows/nix.yml
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC: catches model-hash or release rot
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  flake:
+    # builds the flake the way a Nix user would: nix flake check (the unwrapped
+    # binary, no model download) then nix build .#lxask, which also exercises the
+    # pinned model hashes in nix/hashes.json against the release assets.
+    # PRs trigger only on flake/nix changes: any rust/ edit means a full
+    # llama.cpp recompile inside the sandbox, so rust PRs are covered by pushes
+    # to main and the weekly run instead. aarch64 matters because the flake
+    # targets Pi-class machines.
+    strategy:
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm] # x86_64-linux + aarch64-linux
+    timeout-minutes: 60
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check whether the flake has landed
+        id: gate
+        run: |
+          if [ -f flake.nix ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "flake.nix is not in the tree yet; nothing to build"
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+        if: steps.gate.outputs.present == 'true'
+      - uses: DeterminateSystems/flakehub-cache-action@599f4b231216aed692532bc717021b9b0aafb35d # v3.24.3
+        if: steps.gate.outputs.present == 'true'
+      - name: nix flake check
+        if: steps.gate.outputs.present == 'true'
+        run: nix flake check --print-build-logs
+      - name: nix build .#lxask (wrapped, including the pinned model assets)
+        if: steps.gate.outputs.present == 'true'
+        run: nix build .#lxask --print-build-logs
+      - name: Smoke test
+        if: steps.gate.outputs.present == 'true'
+        run: ./result/bin/lxask --version
