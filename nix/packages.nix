@@ -33,8 +33,11 @@ let
 
     nativeBuildInputs = [
       pkgs.cmake
+      pkgs.pkg-config
       pkgs.rustPlatform.bindgenHook
     ];
+    buildInputs = [ pkgs.sqlite ];
+
     dontUseCmakeConfigure = true;
 
     cargoBuildFlags = [
