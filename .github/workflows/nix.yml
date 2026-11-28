@@ -53,4 +53,11 @@ jobs:
         run: nix build .#lxask --print-build-logs
       - name: Smoke test
         if: steps.gate.outputs.present == 'true'
-        run: ./result/bin/lxask --version
+        # --version proves the binary links and runs; the question proves the
+        # wrapped model paths resolve and the full answer pipeline works, which
+        # is what the documented `nix run` install path relies on.
+        run: |
+          ./result/bin/lxask --version
+          out=$(LXASK_SERVE=off timeout 180 ./result/bin/lxask --no-explain "list the files in the current directory" 2>/dev/null)
+          echo "$out"
+          [ -n "$out" ] || { echo "smoke test: empty answer"; exit 1; }

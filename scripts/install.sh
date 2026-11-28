@@ -160,10 +160,19 @@ trap 'rm -rf "$STAGE"' EXIT
 trap 'exit 130' INT TERM  # through the EXIT trap; a bare cleanup trap would carry on
 
 http_get() {  # http_get URL OUT
+    # 1.1 GB over a board's wireless does die mid-download; -C - picks up where the
+    # last attempt stopped instead of starting the file over (the release's storage
+    # answers range requests). The checksum pass still guards what arrives.
     if command -v curl >/dev/null 2>&1; then
-        curl -fL --retry 4 --retry-delay 5 -o "$2" "$1"
+        try=1
+        until curl -fL -C - --retry-delay 5 -o "$2" "$1"; do
+            try=$((try + 1))
+            [ $try -le 5 ] || return 1
+            say "  download interrupted; resuming (attempt $try of 5)"
+            sleep 5
+        done
     elif command -v wget >/dev/null 2>&1; then
-        wget -q --tries=4 -O "$2" "$1"
+        wget -q -c --tries=5 -O "$2" "$1"
     else
         return 1
     fi
@@ -396,7 +405,30 @@ if [ -d "$DATA/venv" ]; then
 fi
 case ":$PATH:" in
     *":$BIN:"*) ;;
-    *) say "add $BIN to PATH, e.g. echo 'export PATH=\"$BIN:\$PATH\"' >> ~/.profile" ;;
+    *)
+        # ~/.profile is the conventional file (login shells of bash and sh read it;
+        # a zsh user who wants it there knows to source it). Many distributions
+        # already list ~/.local/bin there. Without a terminal to ask in, the line
+        # is only printed, as before.
+        if grep -qF "$BIN" "$HOME/.profile" 2>/dev/null; then
+            say "$BIN is already in ~/.profile, so new shells will find lxask (this one needs it once: export PATH=\"$BIN:\$PATH\")"
+        elif (: </dev/tty) 2>/dev/null; then
+            printf '%s\n%s' \
+                "$BIN is not on your PATH, so a new shell would not find the lxask command." \
+                "Add it to ~/.profile for you? [Y/n] " >/dev/tty
+            reply=""
+            read -r reply </dev/tty || reply=""
+            case $reply in
+                [nN]*) say "add it with: echo 'export PATH=\"$BIN:\$PATH\"' >> ~/.profile" ;;
+                *)  if printf '\n# lxask\nexport PATH="%s:$PATH"\n' "$BIN" >> "$HOME/.profile"; then
+                        say "added to ~/.profile, so new shells will find lxask (this one needs it once: export PATH=\"$BIN:\$PATH\")"
+                    else
+                        say "could not write ~/.profile; add $BIN to PATH yourself"
+                    fi ;;
+            esac
+        else
+            say "add $BIN to PATH, e.g. echo 'export PATH=\"$BIN:\$PATH\"' >> ~/.profile"
+        fi ;;
 esac
 
 # Faster answers: with serve = auto, the first question starts lxask in the background
