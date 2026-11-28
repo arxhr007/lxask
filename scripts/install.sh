@@ -45,6 +45,16 @@ while [ $# -gt 0 ]; do
     esac
 done
 
+cat <<'EOF'
+ _               _
+| |             | |
+| |_  ____ _ ___| | __
+| \ \/ / _` / __| |/ /
+| |>  < (_| \__ \   <
+|_/_/\_\__,_|___/_|\_\
+
+EOF
+
 say() { printf '%s\n' "lxask install: $*"; }
 die() { printf '%s\n' "lxask install: $*" >&2; exit 1; }
 
