@@ -52,8 +52,9 @@ cat <<'EOF'
 | \ \/ / _` / __| |/ /
 | |>  < (_| \__ \   <
 |_/_/\_\__,_|___/_|\_\
-
 EOF
+# The release being installed, flush with the right edge of the art.
+printf '%22s\n\n' "$TAG"
 
 say() { printf '%s\n' "lxask install: $*"; }
 die() { printf '%s\n' "lxask install: $*" >&2; exit 1; }
