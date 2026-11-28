@@ -330,7 +330,7 @@ checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
 
 [[package]]
 name = "lxask"
-version = "1.5.10"
+version = "1.5.11"
 dependencies = [
  "libc",
  "lxask-core",
@@ -340,7 +340,7 @@ dependencies = [
 
 [[package]]
 name = "lxask-core"
-version = "1.5.10"
+version = "1.5.11"
 dependencies = [
  "fancy-regex",
  "half",
@@ -349,7 +349,7 @@ dependencies = [
 
 [[package]]
 name = "lxask-llm"
-version = "1.5.10"
+version = "1.5.11"
 dependencies = [
  "llama-cpp-2",
  "llama-cpp-sys-2",
@@ -358,7 +358,7 @@ dependencies = [
 
 [[package]]
 name = "lxask-py"
-version = "1.5.10"
+version = "1.5.11"
 dependencies = [
  "lxask-core",
  "pyo3",

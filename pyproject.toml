@@ -1,6 +1,6 @@
 [project]
 name = "lxask"
-version = "1.5.10"
+version = "1.5.11"
 description = "Offline Linux command assistant: a small local LLM plus retrieval over tldr and man pages"
 readme = "README.md"
 license = "MIT"
