@@ -38,7 +38,25 @@ let
     ];
     buildInputs = [ pkgs.sqlite ];
 
+    # rusqlite enables the bundled sqlite feature; this opts back into linking
+    # the system sqlite from buildInputs instead (libsqlite3-sys honours it).
+    env.LIBSQLITE3_SYS_USE_PKG_CONFIG = "1";
+
     dontUseCmakeConfigure = true;
+
+    # The llama.cpp cmake build otherwise uses one worker per CPU regardless of
+    # what the nix build allocated, which can OOM small builders.
+    preBuild = ''
+      export CMAKE_BUILD_PARALLEL_LEVEL="$NIX_BUILD_CORES"
+    '';
+
+    # The model is Apache-2.0 and the docs index carries CC BY content; both
+    # licences require their notices to travel with the distribution. The
+    # fileset above excludes the repo root, so install them from the flake.
+    postInstall = ''
+      install -Dm644 ${../LICENSE} $out/share/doc/lxask/LICENSE
+      install -Dm644 ${../NOTICE} $out/share/doc/lxask/NOTICE
+    '';
 
     cargoBuildFlags = [
       "-p"
